@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── REDIN Gold ─────────────────────────────────────────── */
+  --color-redin-gold-50: #FDF8ED;
+  --color-redin-gold-100: #F9EDCC;
+  --color-redin-gold-200: #F2D98A;
+  --color-redin-gold-300: #E8C04E;
+  --color-redin-gold-400: #C4941B;
+  --color-redin-gold-500: #A67B15;
+  --color-redin-gold-600: #88630F;
+  --color-redin-gold-700: #6B4D0B;
+  --color-redin-gold-800: #4E3808;
+  --color-redin-gold-900: #332504;
+
+  /* ── REDIN Forest ───────────────────────────────────────── */
+  --color-redin-forest-50: #EDF5F1;
+  --color-redin-forest-100: #D1E8DD;
+  --color-redin-forest-200: #A3D1BB;
+  --color-redin-forest-300: #5DB08E;
+  --color-redin-forest-400: #2D8B66;
+  --color-redin-forest-500: #1A6B4D;
+  --color-redin-forest-600: #0F5239;
+  --color-redin-forest-700: #0A3D2B;
+  --color-redin-forest-800: #06291C;
+  --color-redin-forest-900: #031A11;
+
+  /* ── REDIN Earth ────────────────────────────────────────── */
+  --color-redin-earth-50: #F7F4F0;
+  --color-redin-earth-100: #EDE7DF;
+  --color-redin-earth-200: #DDD3C5;
+  --color-redin-earth-300: #C4B49E;
+  --color-redin-earth-400: #A08A6E;
+  --color-redin-earth-500: #7D6B53;
+  --color-redin-earth-600: #5E4F3D;
+  --color-redin-earth-700: #443929;
+  --color-redin-earth-800: #2D2519;
+  --color-redin-earth-900: #1A150E;
+
+  /* ── Fonts ──────────────────────────────────────────────── */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: var(--color-redin-earth-50);
+  color: var(--color-redin-earth-900);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
