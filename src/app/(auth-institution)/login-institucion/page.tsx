@@ -21,9 +21,21 @@ export default function LoginInstitucionPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!dbUser) return;
-    if (dbUser.role === 'INSTITUTION') router.replace('/institucion');
-    else router.replace('/');
+    if (dbUser.role === 'INSTITUTION') {
+      redirectByApproval(dbUser.institution?.approvalStatus);
+    } else {
+      router.replace('/');
+    }
   }, [dbUser, authLoading, router]);
+
+  function redirectByApproval(status?: string) {
+    switch (status) {
+      case 'PENDING': router.replace('/pendiente'); break;
+      case 'REJECTED': router.replace('/rechazada'); break;
+      case 'SUSPENDED': router.replace('/suspendida'); break;
+      default: router.replace('/institucion'); break;
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +52,7 @@ export default function LoginInstitucionPage() {
         setLoading(false);
         return;
       }
-      router.push('/institucion');
+      redirectByApproval(user.institution?.approvalStatus);
     } catch (err) {
       setError(
         err instanceof Error

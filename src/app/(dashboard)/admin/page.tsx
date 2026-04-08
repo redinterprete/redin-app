@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { Users, FileText, Clock, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Users, FileText, Clock, CheckCircle, Building2, CreditCard } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { formatDateTime } from '@/lib/utils';
 import { StatsCard, StatsCardSkeleton } from '@/components/ui/StatsCard';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import {
   Table,
@@ -32,6 +34,7 @@ export default function AdminDashboardPage() {
   const [topLangs, setTopLangs] = useState<TopLanguage[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
   const { socket } = useSocketContext();
 
   const fetchDashboard = useCallback(() => {
@@ -85,6 +88,30 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-semibold text-redin-earth-900">Dashboard</h1>
         <p className="text-redin-earth-500">Resumen de actividad de REDIN</p>
       </div>
+
+      {/* Alert banners */}
+      {stats && (stats.pendingInstitutions ?? 0) > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Building2 size={20} className="text-amber-600" />
+            <span className="text-sm text-amber-800">
+              {stats.pendingInstitutions} institucion{(stats.pendingInstitutions ?? 0) > 1 ? 'es' : ''} pendiente{(stats.pendingInstitutions ?? 0) > 1 ? 's' : ''} de aprobacion
+            </span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => router.push('/admin/instituciones')}>Revisar</Button>
+        </div>
+      )}
+      {stats && (stats.pendingPaymentReviews ?? 0) > 0 && (
+        <div className="p-4 bg-redin-gold-50 border border-redin-gold-200 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard size={20} className="text-redin-gold-600" />
+            <span className="text-sm text-redin-gold-800">
+              {stats.pendingPaymentReviews} pago{(stats.pendingPaymentReviews ?? 0) > 1 ? 's' : ''} pendiente{(stats.pendingPaymentReviews ?? 0) > 1 ? 's' : ''} de revision
+            </span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => router.push('/admin/pagos')}>Revisar</Button>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

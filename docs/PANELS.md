@@ -7,9 +7,34 @@ Dos cards: "Soy una institucion" → /login-institucion, "Soy interprete o admin
 
 ### Login Institucion (/login-institucion)
 Fondo calido (earth→gold gradient). Solo rol INSTITUTION. Error + link si otro rol intenta entrar. Link a /registro.
+- Despues de login, redirige segun approvalStatus:
+  - PENDING → /pendiente
+  - REJECTED → /rechazada
+  - SUSPENDED → /suspendida
+  - APPROVED → /institucion
 
 ### Registro (/registro)
 Solo instituciones. Campos: nombre institucion, tipo, nombre responsable, email, telefono, contrasena. Crea cuenta Firebase + backend.
+- Despues de registrarse, redirige a /pendiente (la cuenta empieza como PENDING).
+
+### Paginas de estado de institucion
+
+**Pendiente (/pendiente):**
+- Icono: Clock (amber), titulo: "Tu cuenta esta en revision"
+- Texto: proceso 1-3 dias habiles
+- Contacto: contacto.redinterpretes@gmail.com
+- Boton cerrar sesion
+- Escucha WebSocket `institution:approved` → toast + redirige a /institucion
+- Escucha WebSocket `institution:rejected` → redirige a /rechazada
+
+**Rechazada (/rechazada):**
+- Icono: XCircle (rojo), titulo: "Tu solicitud no fue aprobada"
+- Muestra motivo de rechazo (rejectionReason del dbUser)
+- Escucha WebSocket `institution:approved` → redirige a /institucion (si admin reactiva)
+
+**Suspendida (/suspendida):**
+- Icono: AlertTriangle (amber), titulo: "Tu cuenta ha sido suspendida"
+- Escucha WebSocket `institution:approved` → redirige a /institucion (si admin reactiva)
 
 ### Login Interno (/login)
 Fondo forest-800. Para admin e interpretes. Sin registro. Si interprete tiene mustChangePassword=true, redirige a /cambiar-contrasena.
@@ -22,6 +47,7 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
 ## Panel Administrador (/admin)
 
 ### Dashboard (/admin)
+- Alertas de accion: banner amber si hay instituciones pendientes de aprobacion, banner gold si hay pagos pendientes de revision. Cada una con boton "Revisar"
 - 4 stats cards: interpretes activos, solicitudes mes, pendientes, completadas hoy
 - Grafica de servicios por semana
 - Tabla de solicitudes recientes (10)
@@ -29,11 +55,12 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
 - Se actualiza en tiempo real (WebSocket: request:created, accepted, started, completed, cancelled)
 
 ### Interpretes (/admin/interpretes)
-- Tabla: nombre, email, telefono, lenguas (badges), comunidad, disponibilidad
+- Tabla: nombre, email, telefono, lenguas (badges), comunidad, tarifa/hr, disponibilidad
 - Columna "Acceso": contrasena temporal (copiable) o badge "Activo"
+- Columna "Tarifa/hr": $300.00/hr (font-mono)
 - Busqueda por nombre
-- Modal crear: nombre, email, telefono, comunidad, estado, bio, lenguas, datos bancarios. Sin campo contrasena (REDIN-XXXX automatico). Modal exito muestra contrasena
-- Modal editar: mismos campos, email disabled
+- Modal crear: nombre, email, telefono, comunidad, estado, bio, tarifa por hora (default $300), lenguas, datos bancarios. Sin campo contrasena (REDIN-XXXX automatico). Modal exito muestra contrasena
+- Modal editar: mismos campos incluyendo tarifa, email disabled
 - Boton regenerar contrasena (KeyRound icon)
 - Paginacion
 
@@ -52,14 +79,40 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
 - Se actualiza en tiempo real
 
 ### Pagos (/admin/pagos)
-- Resumen: total pendiente, pagado este mes
-- Tabs: Pendientes, Pagados
-- Tabla: fecha, interprete, institucion, duracion, monto, CLABE, estado
-- Boton "Marcar como pagado"
+- 4 stats cards: por revisar (count + total), en proceso, pagado este mes, cobro pendiente instituciones
+- Tabs: Por revisar | Aprobados | Pagados | Cobros institucion
 - Busqueda por interprete
+- **Tab "Por revisar"** (status PENDING):
+  - Cards con desglose: fecha, interprete, institucion, lengua, duracion, breakdown, monto grande
+  - Boton "Revisar y aprobar" → abre modal de revision
+- **Modal de revision:**
+  - Servicio: lengua, contexto, tipo, descripcion
+  - Timeline visual: creacion, aceptacion, inicio, desconexiones, fin
+  - Desglose billing: duracion total, facturable, desconexiones (dentro/fuera gracia), horas cobradas, tarifa, monto
+  - Datos bancarios: nombre, banco, CLABE (enmascarada, boton "ver completa"), titular
+  - Institucion: nombre, tipo, ciudad
+  - Acciones: textarea notas admin, boton "Aprobar pago — $X", boton "Ajustar monto"
+  - Sub-formulario ajuste: monto ajustado, motivo obligatorio, boton confirmar
+- **Tab "Aprobados"** (status PROCESSING):
+  - Tabla: interprete, monto (con tachado si ajustado), CLABE ultimos 4, motivo ajuste
+  - Boton "Marcar pagado" → modal confirmacion
+- **Tab "Pagados"** (status COMPLETED):
+  - Tabla: fecha pago, interprete, monto, confirmado (badge verde/amber)
+- **Tab "Cobros institucion":**
+  - Tabla: institucion, servicio, fecha, monto, estado cobro (PENDING/INVOICED/COLLECTED)
+  - Acciones: Facturar (PENDING→INVOICED), Cobrar (INVOICED→COLLECTED)
 
 ### Instituciones (/admin/instituciones)
-- Tabla: nombre, tipo, ciudad, estado, email, total solicitudes
+- Tabs: Aprobadas | Pendientes | Rechazadas | Suspendidas (con conteo). Default a Pendientes si hay alguna
+- Tabla: nombre, tipo, ciudad, email, estado (badge), contrato, solicitudes
+- Click abre modal detalle:
+  - Info: tipo, responsable, email, telefono, ciudad, estado, fecha registro, estatus badge
+  - Si rechazada: card roja con motivo
+  - Campos admin: notas internas (textarea), numero de contrato (input)
+  - Acciones segun status:
+    - PENDING: "Aprobar cuenta" + "Rechazar" (abre sub-formulario con motivo obligatorio min 10 chars)
+    - APPROVED: "Suspender cuenta"
+    - REJECTED/SUSPENDED: "Reactivar cuenta"
 - Busqueda, paginacion
 
 ---
@@ -126,8 +179,13 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
 ### Mis pagos (/interprete/pagos)
 - 3 stats: total ganado, este mes, pendiente
 - Tabs: Pendientes (cards), Cobrados (tabla)
-- Boton "Confirmar recepcion"
-- Se actualiza por WebSocket (payment:completed)
+- **Tab Pendientes** (PENDING + PROCESSING):
+  - Cards con fecha, institucion, lengua, breakdown del cobro, monto grande
+  - Badge status: PENDING → "En revision por REDIN" (amber), PROCESSING → "Aprobado — pago en proceso" (blue)
+  - Si hay ajuste: card amber con monto original tachado, monto ajustado, motivo
+- **Tab Cobrados** (COMPLETED):
+  - Tabla con breakdown, boton "Confirmar" si no confirmado
+- Se actualiza por WebSocket (payment:completed, payment:approved, payment:adjusted)
 
 ### Mi perfil (/interprete/perfil)
 - Info personal editable: telefono, comunidad, estado, bio

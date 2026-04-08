@@ -33,13 +33,27 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       return;
     }
 
+    // Institución no aprobada: redirigir a pantalla de estado
+    if (dbUser.role === 'INSTITUTION' && dbUser.institution?.approvalStatus && dbUser.institution.approvalStatus !== 'APPROVED') {
+      const statusRoutes: Record<string, string> = {
+        PENDING: '/pendiente',
+        REJECTED: '/rechazada',
+        SUSPENDED: '/suspendida',
+      };
+      const redirectTo = statusRoutes[dbUser.institution.approvalStatus];
+      if (redirectTo && pathname !== redirectTo) {
+        router.replace(redirectTo);
+        return;
+      }
+    }
+
     if (allowedRoles && !allowedRoles.includes(dbUser.role)) {
       // Redirige al dashboard correcto según rol
       if (dbUser.role === 'ADMIN') router.replace('/admin');
       else if (dbUser.role === 'INSTITUTION') router.replace('/institucion');
       else if (dbUser.role === 'INTERPRETER') router.replace('/interprete');
     }
-  }, [dbUser, loading, allowedRoles, router]);
+  }, [dbUser, loading, allowedRoles, router, pathname]);
 
   if (loading) {
     return (

@@ -86,8 +86,9 @@ Selector de dos niveles: primero lengua, luego variante.
 - Busqueda integrada.
 
 ### ProtectedRoute
-Verifica autenticacion y rol. Redirige a / si no autenticado.
+Verifica autenticacion, rol, y estado de aprobacion. Redirige a / si no autenticado.
 - Si interprete con mustChangePassword, redirige a /cambiar-contrasena.
+- Si institucion con approvalStatus != APPROVED, redirige a /pendiente, /rechazada, o /suspendida segun status.
 - Role mismatch: redirige al dashboard correcto del rol.
 
 ### DateTimePicker
@@ -144,10 +145,14 @@ Llamadas al API con estados de loading/error.
 - useFetch: declarativo, auto-fetch cuando endpoint cambia.
 
 ### useBillingTimer
-Timer facturable que sobrevive refresh de pagina.
-- Calcula elapsed desde billingStartedAt del backend al montar.
-- Tick cada segundo cuando isRunning (bothConnected && billingStartedAt).
-- Retorna: billingSeconds, isRunning.
+Timer facturable con 3 estados que sobrevive refresh de pagina.
+- Fetch inicial: GET /requests/:id/meeting para obtener currentBillableSeconds y totalSeconds del servidor.
+- 3 estados:
+  - **Running** — ambos conectados, billable y total corren cada segundo
+  - **Grace** — uno salio, billable y total siguen corriendo + countdown de 5 min (isInGracePeriod=true)
+  - **Paused** — gracia expiro, billable congelado, total sigue (isPausedByGrace=true)
+- Escucha WebSocket: meeting:both_connected (resume), meeting:participant_left (grace), meeting:disconnection_warning (pause), meeting:ending (freeze todo + isEnding=true)
+- Retorna: billableSeconds, totalSeconds, isRunning, isInGracePeriod, isPausedByGrace, graceRemainingSeconds, disconnectedParticipant, isLoading, isEnding.
 
 ---
 
@@ -168,7 +173,7 @@ Provee conexion Socket.IO a toda la app.
 Estado de notificaciones in-app.
 - State: notifications (ultimas 20), unreadCount, loading.
 - Fetch inicial desde API, luego actualiza por WebSocket.
-- Escucha: notification:new, request:available/taken/accepted/started/completed, payment:completed, meeting:renewed/both_connected/no_show.
+- Escucha: notification:new, request:available/taken/accepted/started/completed, payment:completed/approved/adjusted, meeting:renewed/both_connected/no_show, institution:approved/rejected/suspended.
 - Metodos: markAsRead, markAllAsRead, refetch.
 - Toasts por tipo de evento.
 

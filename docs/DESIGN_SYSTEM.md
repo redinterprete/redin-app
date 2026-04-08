@@ -124,6 +124,46 @@ Textos, fondos, bordes, neutrales.
 
 ---
 
+## Estados de aprobacion de institucion
+
+| Estado | Badge variant | Color | Texto |
+|---|---|---|---|
+| PENDING | amber | amber-100/800 | Pendiente |
+| APPROVED | green | green-100/800 | Aprobada |
+| REJECTED | red | red-100/800 | Rechazada |
+| SUSPENDED | gray | gray-100/600 | Suspendida |
+
+## Estados de pago (interprete)
+
+| Estado | Badge variant | Color | Texto |
+|---|---|---|---|
+| PENDING | amber | amber-100/800 | En revision por REDIN |
+| PROCESSING | blue | blue-100/800 | Aprobado — pago en proceso |
+| COMPLETED | green | green-100/800 | Pagado |
+
+## Estados de cobro a institucion
+
+| Estado | Badge variant | Color | Texto |
+|---|---|---|---|
+| PENDING | amber | amber-100/800 | Pendiente de facturar |
+| INVOICED | blue | blue-100/800 | Facturada |
+| COLLECTED | green | green-100/800 | Cobrado |
+
+## Alertas del dashboard admin
+
+- Instituciones pendientes: `bg-amber-50 border-amber-200`, icono Building2 amber-600
+- Pagos pendientes: `bg-redin-gold-50 border-redin-gold-200`, icono CreditCard redin-gold-600
+- Ambas con boton "Revisar" (variant outline, size sm)
+
+## Grace period (timer)
+
+- Running: `text-redin-forest-600` (verde)
+- Grace activa: `text-redin-gold-600` (dorado) + countdown en `bg-amber-50 border-amber-200`
+- Pausado: `text-amber-500` + texto "Pausado — {participante} desconectado"
+- Finalizando: timer congelado, texto "Finalizando..."
+
+---
+
 ## Iconografia
 
 Lucide React para todos los iconos. Tamano estandar: h-4 w-4 (inline), h-5 w-5 (botones), h-6 w-6 (cards).

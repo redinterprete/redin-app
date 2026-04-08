@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Calendar, Play, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
-import { formatDateTime, formatTimer, formatCurrency } from '@/lib/utils';
+import { formatDateTime, formatTimer, formatCurrency, cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -94,10 +94,21 @@ export default function AgendaInterpretePage() {
     const handleNoShow = (data: { request: ServiceRequest }) => {
       setItems((prev) => prev.filter((r) => r.id !== data.request.id));
     };
+    const handleCompleted = (data: { request: ServiceRequest; payment?: { amount: number | string } }) => {
+      setItems((prev) => prev.filter((r) => r.id !== data.request.id));
+      const amt = data.payment?.amount ? `$${Number(data.payment.amount)}` : '';
+      toast.success(`Servicio completado. ${amt ? 'Pago: ' + amt + ' MXN' : ''}`, { duration: 8000 });
+    };
+    const handleInterrupted = (data: { requestId: string }) => {
+      setItems((prev) => prev.filter((r) => r.id !== data.requestId));
+      toast.error('Servicio interrumpido por desconexion prolongada');
+    };
 
     socket.on('request:cancelled', handleCancelled);
     socket.on('request:accepted', handleAccepted);
     socket.on('request:started', handleStarted);
+    socket.on('request:completed', handleCompleted);
+    socket.on('request:interrupted', handleInterrupted);
     socket.on('meeting:participant_joined', handleParticipantJoined);
     socket.on('meeting:participant_left', handleParticipantLeft);
     socket.on('meeting:both_connected', handleBothConnected);
@@ -108,6 +119,8 @@ export default function AgendaInterpretePage() {
       socket.off('request:cancelled', handleCancelled);
       socket.off('request:accepted', handleAccepted);
       socket.off('request:started', handleStarted);
+      socket.off('request:completed', handleCompleted);
+      socket.off('request:interrupted', handleInterrupted);
       socket.off('meeting:participant_joined', handleParticipantJoined);
       socket.off('meeting:participant_left', handleParticipantLeft);
       socket.off('meeting:both_connected', handleBothConnected);
@@ -127,11 +140,11 @@ export default function AgendaInterpretePage() {
     return () => clearInterval(interval);
   }, [inProgress?.startedAt, inProgress?.id]);
 
-  // Billing timer (only counts when both connected)
-  const { billingSeconds } = useBillingTimer({
-    billingStartedAt: inProgress?.billingStartedAt ?? inProgress?.startedAt ?? null,
-    bothConnected: meetingParticipants.interpreterConnected && meetingParticipants.institutionConnected,
-    initialBillingMinutes: inProgress?.billingMinutes,
+  // Billing timer with grace period support
+  const billingTimer = useBillingTimer({
+    requestId: inProgress?.id ?? null,
+    status: inProgress?.status ?? '',
+    startedAt: inProgress?.startedAt ?? null,
   });
 
   async function handleStart(id: string) {
@@ -188,14 +201,51 @@ export default function AgendaInterpretePage() {
                 <p className="text-sm text-redin-earth-600">{inProgress.institution?.user?.name}</p>
                 {inProgress.context && <p className="text-sm text-redin-earth-500 capitalize">{contextLabel(inProgress.context)}</p>}
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
+                {/* Participant indicators */}
                 <MeetingStatus
                   interpreterConnected={meetingParticipants.interpreterConnected}
                   institutionConnected={meetingParticipants.institutionConnected}
-                  billingSeconds={billingSeconds}
+                  billingSeconds={billingTimer.billableSeconds}
+                  showBilling={false}
                 />
+
+                {/* Billable timer */}
+                <div className="text-center">
+                  <p className="text-xs text-redin-earth-500">Tiempo facturable</p>
+                  <p className={cn(
+                    'text-3xl font-mono font-bold',
+                    billingTimer.isPausedByGrace ? 'text-amber-500'
+                      : billingTimer.isInGracePeriod ? 'text-redin-gold-600'
+                      : 'text-redin-forest-600'
+                  )}>
+                    {formatTimer(billingTimer.billableSeconds)}
+                  </p>
+                  {billingTimer.isPausedByGrace && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Pausado — {billingTimer.disconnectedParticipant} desconectado
+                    </p>
+                  )}
+                </div>
+
+                {/* Grace countdown */}
+                {billingTimer.isInGracePeriod && (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-xs text-amber-800">Periodo de gracia</span>
+                      <span className="text-sm font-mono font-bold text-amber-600">
+                        {Math.floor(billingTimer.graceRemainingSeconds / 60)}:{String(billingTimer.graceRemainingSeconds % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      El tiempo facturable sigue corriendo
+                    </p>
+                  </div>
+                )}
+
+                {/* Total timer */}
                 <p className="text-xs text-redin-earth-400 text-center">
-                  Tiempo total: {formatTimer(timer)}
+                  Tiempo total: {formatTimer(billingTimer.totalSeconds)}
                 </p>
               </div>
             </div>

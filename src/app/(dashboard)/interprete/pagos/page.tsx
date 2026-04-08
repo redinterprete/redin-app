@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { CreditCard, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
-import { formatCurrency, formatDateTime, formatDuration } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { formatCurrency, formatDateTime, cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
-import type { Payment as PaymentType } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { StatsCard, StatsCardSkeleton } from '@/components/ui/StatsCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
@@ -24,11 +24,9 @@ export default function PagosInterpretePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p] = await Promise.all([
-        api.get<ApiResponse<PaymentSummaryInterpreter>>('/payments/my-summary'),
-        api.get<PaginatedResponse<Payment>>(`/payments?page=1&limit=50&status=${tab}`),
-      ]);
+      const s = await api.get<ApiResponse<PaymentSummaryInterpreter>>('/payments/my-summary');
       setSummary(s.data);
+      const p = await api.get<PaginatedResponse<Payment>>(`/payments?page=1&limit=50&status=${tab}`);
       setPayments(p.data);
     } catch { /* */ }
     setLoading(false);
@@ -38,34 +36,26 @@ export default function PagosInterpretePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Real-time: update payment when completed
   useEffect(() => {
     if (!socket) return;
-    const handlePaymentCompleted = (data: { payment: PaymentType }) => {
-      setPayments((prev) =>
-        prev.map((p) =>
-          p.id === data.payment.id
-            ? { ...p, status: 'COMPLETED' as const, paidAt: data.payment.paidAt }
-            : p
-        )
-      );
-      // Refetch summary
-      api.get<ApiResponse<PaymentSummaryInterpreter>>('/payments/my-summary')
-        .then((res) => setSummary(res.data))
-        .catch(() => {});
+    const handlePaymentUpdate = () => { fetchData(); };
+    socket.on('payment:completed', handlePaymentUpdate);
+    socket.on('payment:approved', handlePaymentUpdate);
+    socket.on('payment:adjusted', handlePaymentUpdate);
+    return () => {
+      socket.off('payment:completed', handlePaymentUpdate);
+      socket.off('payment:approved', handlePaymentUpdate);
+      socket.off('payment:adjusted', handlePaymentUpdate);
     };
-    socket.on('payment:completed', handlePaymentCompleted);
-    return () => { socket.off('payment:completed', handlePaymentCompleted); };
-  }, [socket]);
+  }, [socket, fetchData]);
 
   async function handleConfirm(id: string) {
     setConfirming(id);
     try {
       await api.patch(`/payments/${id}/confirm`, {});
+      toast.success('Pago confirmado');
       fetchData();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error');
-    }
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Error'); }
     setConfirming(null);
   }
 
@@ -102,29 +92,44 @@ export default function PagosInterpretePage() {
         ))}
       </div>
 
-      {/* Payments */}
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : payments.length === 0 ? (
-        <Card>
-          <div className="p-6">
-            <EmptyState icon={CreditCard} title={tab === 'PENDING' ? 'Sin pagos pendientes' : 'Sin pagos cobrados'} />
-          </div>
-        </Card>
+        <Card><div className="p-6"><EmptyState icon={CreditCard} title={tab === 'PENDING' ? 'Sin pagos pendientes' : 'Sin pagos cobrados'} /></div></Card>
       ) : tab === 'PENDING' ? (
         <div className="space-y-4">
           {payments.map((pay) => (
             <Card key={pay.id}>
-              <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-redin-earth-500">{formatDateTime(pay.createdAt)}</p>
-                  <p className="text-sm font-medium text-redin-earth-900">{pay.request?.institution?.user?.name}</p>
-                  <p className="text-sm text-redin-earth-600">{pay.request?.variant?.language?.name}</p>
-                  {pay.bankClabe && (
-                    <p className="text-xs text-redin-earth-400">Pago a CLABE ...{pay.bankClabe.slice(-4)}</p>
-                  )}
+              <div className="p-4 sm:p-6 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-redin-earth-400">{formatDateTime(pay.createdAt)}</p>
+                    <p className="text-sm font-medium text-redin-earth-900">{pay.request?.institution?.user?.name}</p>
+                    <p className="text-sm text-redin-earth-600">{pay.request?.variant?.language?.name}</p>
+                    {pay.breakdown && <p className="text-xs text-redin-forest-600">{pay.breakdown}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-redin-gold-700">{formatCurrency(pay.amount)}</p>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-redin-gold-700">{formatCurrency(pay.amount)}</p>
+
+                {/* Status badge */}
+                <div>
+                  {pay.status === 'PENDING' ? (
+                    <Badge variant="amber" size="sm">En revision por REDIN</Badge>
+                  ) : pay.status === 'PROCESSING' ? (
+                    <Badge variant="blue" size="sm">Aprobado — pago en proceso</Badge>
+                  ) : null}
+                </div>
+
+                {/* Adjustment info */}
+                {pay.adjustedAmount && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm space-y-1">
+                    <p className="text-redin-earth-600">Monto original: <span className="line-through">{formatCurrency(pay.amount)}</span></p>
+                    <p className="font-medium text-redin-earth-900">Monto ajustado: {formatCurrency(pay.adjustedAmount)}</p>
+                    {pay.adjustmentReason && <p className="text-xs text-redin-earth-500">Motivo: {pay.adjustmentReason}</p>}
+                  </div>
+                )}
               </div>
             </Card>
           ))}
@@ -138,6 +143,7 @@ export default function PagosInterpretePage() {
                   <th className="pb-3 font-medium">Fecha servicio</th>
                   <th className="pb-3 font-medium">Fecha pago</th>
                   <th className="pb-3 font-medium">Institucion</th>
+                  <th className="pb-3 font-medium">Duracion</th>
                   <th className="pb-3 font-medium">Monto</th>
                   <th className="pb-3 font-medium">Confirmado</th>
                 </tr>
@@ -146,8 +152,9 @@ export default function PagosInterpretePage() {
                 {payments.map((pay) => (
                   <tr key={pay.id} className="border-b border-redin-earth-100">
                     <td className="py-3">{formatDateTime(pay.createdAt)}</td>
-                    <td className="py-3">{pay.paidAt ? formatDateTime(pay.paidAt) : '—'}</td>
+                    <td className="py-3">{pay.paidAt ? formatDateTime(pay.paidAt) : '--'}</td>
                     <td className="py-3">{pay.request?.institution?.user?.name}</td>
+                    <td className="py-3 text-xs">{pay.breakdown ?? '--'}</td>
                     <td className="py-3 font-medium">{formatCurrency(pay.amount)}</td>
                     <td className="py-3">
                       {pay.confirmedByInterpreter ? (

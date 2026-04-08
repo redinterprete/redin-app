@@ -27,7 +27,7 @@ Se comunica con un backend Express ([redin-api](https://github.com/redinterprete
 ```
 src/
   app/
-    (auth-institution)/    # Login institucion + registro
+    (auth-institution)/    # Login institucion + registro + pendiente/rechazada/suspendida
     (auth-internal)/       # Login admin/interprete + cambio contrasena
     (dashboard)/
       admin/               # 6 paginas
@@ -85,6 +85,10 @@ npm run dev
 |---|---|
 | `/` | Landing con selector de portal |
 | `/login-institucion` | Login instituciones (con registro) |
+| `/registro` | Registro de instituciones |
+| `/pendiente` | Cuenta en revision (PENDING) |
+| `/rechazada` | Cuenta rechazada con motivo |
+| `/suspendida` | Cuenta suspendida |
 | `/login` | Login admin/interpretes |
 | `/cambiar-contrasena` | Onboarding contrasena temporal |
 | `/admin/*` | Panel administrador (6 paginas) |

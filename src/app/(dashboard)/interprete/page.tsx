@@ -61,13 +61,19 @@ export default function InterpreteSolicitudesPage() {
     const handleTaken = (data: { requestId: string }) => {
       setRequests((prev) => prev.filter((r) => r.id !== data.requestId));
     };
+    const handleAccepted = (data: { request: ServiceRequest }) => {
+      // Remove from available list (this interpreter accepted it, or it was accepted by someone)
+      setRequests((prev) => prev.filter((r) => r.id !== data.request.id));
+    };
 
     socket.on('request:available', handleAvailable);
     socket.on('request:taken', handleTaken);
+    socket.on('request:accepted', handleAccepted);
 
     return () => {
       socket.off('request:available', handleAvailable);
       socket.off('request:taken', handleTaken);
+      socket.off('request:accepted', handleAccepted);
     };
   }, [socket]);
 

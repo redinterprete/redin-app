@@ -26,6 +26,8 @@ export interface User {
   createdAt?: string;
 }
 
+export type InstitutionApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
 export interface DbUser {
   id: string;
   email: string;
@@ -33,7 +35,7 @@ export interface DbUser {
   phone?: string;
   role: 'ADMIN' | 'INSTITUTION' | 'INTERPRETER';
   interpreter?: { id: string; isAvailable: boolean; community?: string; state?: string; mustChangePassword?: boolean };
-  institution?: { id: string; name: string; type?: string; city?: string };
+  institution?: { id: string; name: string; type?: string; city?: string; approvalStatus?: InstitutionApprovalStatus; rejectionReason?: string };
 }
 
 export interface IndigenousLanguage {
@@ -70,6 +72,7 @@ export interface Interpreter {
   tempPassword?: string;
   mustChangePassword?: boolean;
   firstLoginAt?: string | null;
+  hourlyRate?: number | string;
   user: User;
   languages: InterpreterLanguageInfo[];
 }
@@ -89,6 +92,12 @@ export interface Institution {
   address?: string;
   city?: string;
   state?: string;
+  approvalStatus?: InstitutionApprovalStatus;
+  approvalNotes?: string;
+  rejectionReason?: string;
+  contractNumber?: string;
+  approvedAt?: string;
+  approvedBy?: string;
   user: User;
   _count?: { requests: number };
 }
@@ -136,6 +145,15 @@ export interface Payment {
   bankClabe?: string;
   bankHolder?: string;
   bankName?: string;
+  billedHours?: number;
+  hourlyRate?: number | string;
+  breakdown?: string;
+  adjustedAmount?: number | string;
+  adjustmentReason?: string;
+  adminNotes?: string;
+  institutionPaymentStatus?: 'PENDING' | 'INVOICED' | 'COLLECTED';
+  institutionInvoicedAt?: string;
+  institutionCollectedAt?: string;
   createdAt: string;
   interpreter: { user: { name: string; email?: string } };
   request: ServiceRequest;
@@ -151,6 +169,8 @@ export interface DashboardStats {
   totalLanguages: number;
   totalVariants: number;
   avgResponseTimeMinutes: number | null;
+  pendingInstitutions?: number;
+  pendingPaymentReviews?: number;
 }
 
 export interface WeeklyData {
@@ -165,10 +185,11 @@ export interface TopLanguage {
 }
 
 export interface PaymentSummary {
-  totalPending: number | string;
-  totalPaidThisMonth: number | string;
-  countPending: number;
-  countPaidThisMonth: number;
+  pendingReview: { count: number; total: number };
+  approved: { count: number; total: number };
+  paidThisMonth: { count: number; total: number };
+  pendingCollection: { count: number; total: number };
+  collectedThisMonth: { count: number; total: number };
 }
 
 // ── Fase 2: Perfiles y estadísticas ─────────────────────────────
@@ -264,15 +285,77 @@ export interface Notification {
 
 // ── Fase 4: Zoom ───────────────────────────────────────────────
 
+export interface PaymentReview {
+  payment: {
+    id: string;
+    amount: number;
+    billedHours?: number;
+    hourlyRate?: number;
+    breakdown?: string;
+    status: string;
+    adjustedAmount?: number;
+    adjustmentReason?: string;
+    adminNotes?: string;
+    institutionPaymentStatus: string;
+    createdAt: string;
+  };
+  service: {
+    requestId: string;
+    type: string;
+    context?: string;
+    description?: string;
+    createdAt: string;
+    acceptedAt?: string;
+    startedAt?: string;
+    endedAt?: string;
+    durationMinutes?: number;
+    billingMinutes?: number;
+    language: string;
+    variant: string;
+  };
+  interpreter: {
+    name: string;
+    email: string;
+    phone?: string;
+    hourlyRate: number;
+    bankName?: string;
+    bankClabe?: string;
+    bankHolder?: string;
+  };
+  institution: {
+    name: string;
+    type?: string;
+    city?: string;
+  };
+  timeline: Array<{ event: string; timestamp: string; detail?: string }>;
+  disconnections: Array<{
+    participant: string;
+    leftAt: string;
+    rejoinedAt?: string;
+    durationSeconds: number;
+    withinGrace: boolean;
+  }>;
+}
+
 export interface MeetingInfo {
   zoomJoinUrl: string | null;
   zoomPassword: string | null;
   zoomMeetingId: string | null;
   status: RequestStatus;
   billingStartedAt: string | null;
+  startedAt: string | null;
   billingMinutes: number | null;
+  currentBillableSeconds: number;
+  totalSeconds: number;
+  bothConnected: boolean;
   participants: {
     interpreterConnected: boolean;
     institutionConnected: boolean;
+  };
+  grace: {
+    active: boolean;
+    remainingSeconds: number | null;
+    expired: boolean;
+    disconnectedParticipant: string | null;
   };
 }

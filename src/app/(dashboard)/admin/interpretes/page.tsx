@@ -65,6 +65,7 @@ interface InterpreterForm {
   state: string;
   bio: string;
   isAvailable: boolean;
+  hourlyRate: string;
   bankName: string;
   bankClabe: string;
   bankHolder: string;
@@ -79,6 +80,7 @@ const emptyForm: InterpreterForm = {
   state: '',
   bio: '',
   isAvailable: true,
+  hourlyRate: '300',
   bankName: '',
   bankClabe: '',
   bankHolder: '',
@@ -157,6 +159,7 @@ export default function InterpretesPage() {
       state: interp.state ?? '',
       bio: interp.bio ?? '',
       isAvailable: interp.isAvailable,
+      hourlyRate: String(interp.hourlyRate ?? 300),
       bankName: '',
       bankClabe: '',
       bankHolder: '',
@@ -189,6 +192,7 @@ export default function InterpretesPage() {
         ...(form.state && { state: form.state }),
         ...(form.bio && { bio: form.bio }),
         isAvailable: form.isAvailable,
+        ...(form.hourlyRate && { hourlyRate: parseFloat(form.hourlyRate) }),
         ...(form.bankName && { bankName: form.bankName }),
         ...(form.bankClabe && { bankClabe: form.bankClabe }),
         ...(form.bankHolder && { bankHolder: form.bankHolder }),
@@ -314,6 +318,7 @@ export default function InterpretesPage() {
                   <TableHead>Comunidad</TableHead>
                   <TableHead>Lenguas</TableHead>
                   <TableHead>Disponible</TableHead>
+                  <TableHead>Tarifa/hr</TableHead>
                   <TableHead>Acceso</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -350,6 +355,9 @@ export default function InterpretesPage() {
                       >
                         {interp.isAvailable ? 'Sí' : 'No'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-mono text-redin-earth-600">${Number(interp.hourlyRate ?? 300)}/hr</span>
                     </TableCell>
                     <TableCell>
                       {interp.mustChangePassword && interp.tempPassword ? (
@@ -606,6 +614,15 @@ export default function InterpretesPage() {
           <div className="space-y-4">
             <p className="text-sm text-redin-earth-500">
               Datos bancarios para el pago de servicios. Son opcionales y se pueden agregar después.
+            <Input
+              label="Tarifa por hora (MXN)"
+              type="number"
+              min={1}
+              step={50}
+              value={form.hourlyRate}
+              onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
+              placeholder="300"
+            />
             </p>
             <Input
               label="Nombre del banco"

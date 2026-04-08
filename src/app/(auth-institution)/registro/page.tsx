@@ -36,7 +36,10 @@ export default function RegistroPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!dbUser) return;
-    if (dbUser.role === 'INSTITUTION') router.replace('/institucion');
+    if (dbUser.role === 'INSTITUTION') {
+      if (dbUser.institution?.approvalStatus === 'APPROVED') router.replace('/institucion');
+      else router.replace('/pendiente');
+    }
     else router.replace('/');
   }, [dbUser, authLoading, router]);
 
@@ -68,7 +71,7 @@ export default function RegistroPage() {
           type: form.type || undefined,
         },
       });
-      router.push('/institucion');
+      router.push('/pendiente');
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Error al registrar'
