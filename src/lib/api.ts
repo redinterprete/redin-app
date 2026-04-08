@@ -23,6 +23,21 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const data = await res.json();
 
     if (!res.ok) {
+      // Force logout on suspended/rejected institution
+      if (res.status === 403 && data.details?.code === 'ACCOUNT_SUSPENDED') {
+        if (typeof window !== 'undefined') {
+          const { signOut } = await import('firebase/auth');
+          const { auth: fbAuth } = await import('./firebase');
+          await signOut(fbAuth).catch(() => {});
+          window.location.href = '/suspendida';
+        }
+        throw new Error(data.error || 'Cuenta suspendida');
+      }
+      if (res.status === 403 && data.details?.code === 'ACCOUNT_PENDING') {
+        if (typeof window !== 'undefined') window.location.href = '/pendiente';
+        throw new Error(data.error || 'Cuenta pendiente');
+      }
+
       // Retry on 500 for GET requests
       if (res.status >= 500 && attempt < maxRetries) {
         await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));

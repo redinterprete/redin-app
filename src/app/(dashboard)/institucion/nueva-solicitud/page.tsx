@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Zap, CalendarClock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Zap, CalendarClock, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,7 @@ import type { ApiResponse, ServiceRequest, CreateRequestPayload } from '@/types'
 
 export default function NuevaSolicitudPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [variantId, setVariantId] = useState('');
   const [type, setType] = useState<'IMMEDIATE' | 'SCHEDULED' | ''>('');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -23,6 +24,17 @@ export default function NuevaSolicitudPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ServiceRequest | null>(null);
+  const [showAIBanner, setShowAIBanner] = useState(false);
+
+  // Pre-fill from language identification
+  useEffect(() => {
+    const qVariantId = searchParams.get('variantId');
+    const qFrom = searchParams.get('from');
+    if (qVariantId && qFrom === 'identification') {
+      setVariantId(qVariantId);
+      setShowAIBanner(true);
+    }
+  }, [searchParams]);
 
   const canSubmit = variantId && type && context && (!type || type !== 'SCHEDULED' || scheduledAt);
 
@@ -63,6 +75,16 @@ export default function NuevaSolicitudPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {showAIBanner && (
+        <div className="bg-redin-gold-50 border border-redin-gold-200 rounded-xl p-4 flex items-center gap-3">
+          <Sparkles size={20} className="text-redin-gold-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-redin-gold-800">Lengua identificada por IA</p>
+            <p className="text-xs text-redin-gold-600">Se pre-selecciono la variante detectada. Solo completa el tipo de servicio y el contexto.</p>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-redin-earth-900">Nueva solicitud de interpretacion</h1>
         <p className="text-sm text-redin-earth-500 mt-1">Complete la informacion para buscar un interprete disponible</p>

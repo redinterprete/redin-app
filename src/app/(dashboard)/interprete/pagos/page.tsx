@@ -26,8 +26,15 @@ export default function PagosInterpretePage() {
     try {
       const s = await api.get<ApiResponse<PaymentSummaryInterpreter>>('/payments/my-summary');
       setSummary(s.data);
-      const p = await api.get<PaginatedResponse<Payment>>(`/payments?page=1&limit=50&status=${tab}`);
-      setPayments(p.data);
+      if (tab === 'PENDING') {
+        // Fetch both PENDING and PROCESSING for the "Pendientes" tab
+        const pending = await api.get<PaginatedResponse<Payment>>('/payments?page=1&limit=50&status=PENDING');
+        const processing = await api.get<PaginatedResponse<Payment>>('/payments?page=1&limit=50&status=PROCESSING');
+        setPayments([...pending.data, ...processing.data]);
+      } else {
+        const p = await api.get<PaginatedResponse<Payment>>(`/payments?page=1&limit=50&status=${tab}`);
+        setPayments(p.data);
+      }
     } catch { /* */ }
     setLoading(false);
   }, [tab]);

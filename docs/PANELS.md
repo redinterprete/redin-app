@@ -23,18 +23,19 @@ Solo instituciones. Campos: nombre institucion, tipo, nombre responsable, email,
 - Icono: Clock (amber), titulo: "Tu cuenta esta en revision"
 - Texto: proceso 1-3 dias habiles
 - Contacto: contacto.redinterpretes@gmail.com
-- Boton cerrar sesion
-- Escucha WebSocket `institution:approved` → toast + redirige a /institucion
-- Escucha WebSocket `institution:rejected` → redirige a /rechazada
+- Boton cerrar sesion (usa Firebase signOut directamente)
+- WebSocket: `institution:approved` → toast + redirige a /institucion
+- WebSocket: `institution:rejected` → redirige a /rechazada
+- Polling fallback: cada 10s consulta /auth/session y redirige si approvalStatus cambio
 
 **Rechazada (/rechazada):**
 - Icono: XCircle (rojo), titulo: "Tu solicitud no fue aprobada"
 - Muestra motivo de rechazo (rejectionReason del dbUser)
-- Escucha WebSocket `institution:approved` → redirige a /institucion (si admin reactiva)
+- WebSocket + polling fallback: redirige a /institucion si admin reactiva
 
 **Suspendida (/suspendida):**
 - Icono: AlertTriangle (amber), titulo: "Tu cuenta ha sido suspendida"
-- Escucha WebSocket `institution:approved` → redirige a /institucion (si admin reactiva)
+- WebSocket + polling fallback: redirige a /institucion si admin reactiva
 
 ### Login Interno (/login)
 Fondo forest-800. Para admin e interpretes. Sin registro. Si interprete tiene mustChangePassword=true, redirige a /cambiar-contrasena.
@@ -55,14 +56,19 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
 - Se actualiza en tiempo real (WebSocket: request:created, accepted, started, completed, cancelled)
 
 ### Interpretes (/admin/interpretes)
-- Tabla: nombre, email, telefono, lenguas (badges), comunidad, tarifa/hr, disponibilidad
-- Columna "Acceso": contrasena temporal (copiable) o badge "Activo"
-- Columna "Tarifa/hr": $300.00/hr (font-mono)
-- Busqueda por nombre
-- Modal crear: nombre, email, telefono, comunidad, estado, bio, tarifa por hora (default $300), lenguas, datos bancarios. Sin campo contrasena (REDIN-XXXX automatico). Modal exito muestra contrasena
+- Tabla: nombre, email, telefono, comunidad, lenguas (badges), disponibilidad (toggle switch), tarifa/hr, acceso, acciones
+- Columna "Disponible": toggle switch si cuenta activa, badge "Desactivado" (rojo) si inactiva
+- Columna "Acceso":
+  - Si mustChangePassword=true: badge "Pendiente" + icono Eye (ver contrasena sin regenerar) + icono RefreshCw (regenerar con confirmacion)
+  - Si mustChangePassword=false: badge "Activo" + icono RefreshCw (regenerar si pierde contrasena)
+- Columna acciones: ver detalle (Eye), editar (Edit3), desactivar (Trash2, solo si cuenta activa)
+- Busqueda por nombre, paginacion
+- Modal crear: nombre, email, telefono, comunidad, estado, bio, tarifa por hora (default $300), lenguas con proficiency, datos bancarios. Sin campo contrasena (REDIN-XXXX automatico). Modal exito muestra contrasena con boton copiar
 - Modal editar: mismos campos incluyendo tarifa, email disabled
-- Boton regenerar contrasena (KeyRound icon)
-- Paginacion
+- Modal detalle: info completa + lenguas + datos bancarios + boton "Desactivar cuenta" / "Reactivar cuenta"
+- Modal eliminar: ahora dice "Desactivar interprete" con lista de consecuencias
+- WebSocket: se actualiza automaticamente con eventos de solicitudes
+- Validacion: telefono duplicado retorna error 409 claro
 
 ### Lenguas (/admin/lenguas)
 - Vista accordion: lengua → variantes
@@ -134,6 +140,19 @@ Onboarding obligatorio. Campos: contrasena temporal, nueva, confirmar. Indicador
   3. ContextSelector (juridico, medico, social, educativo, otro) + descripcion opcional
 - Envia timezone local automaticamente
 - Modal exito: "Estamos buscando interprete" o "Agendada correctamente"
+- Soporta query params: ?variantId=X&from=identification pre-selecciona la variante y muestra banner "Lengua identificada por IA"
+
+### Identificacion linguistica (/institucion/identificacion)
+- Prototipo de identificacion de lengua indigena por IA
+- **Estado 1 (idle):** Icono Mic grande, boton circular rojo para grabar, link para subir archivo de audio
+- **Estado 2 (recording):** Indicador pulsante rojo, timer "00:05", waveform en tiempo real (Web Audio API + AnalyserNode + Canvas, barras redin-gold-400), boton cuadrado para detener
+- **Estado 3 (recorded):** "Audio grabado — X segundos", boton "Analizar audio" (Sparkles), boton "Grabar de nuevo"
+- **Estado 4 (analyzing):** Barra de progreso animada con 3 fases:
+  1. "Procesando audio..." (0-30%, 2s, icono Mic)
+  2. "Comparando con base de datos linguistica..." (30-70%, 2s, icono Database)
+  3. "Identificando variante linguistica..." (70-100%, icono Brain)
+- **Estado 5 (result):** Card con borde dorado, confianza 92%, lengua/variante/region/familia, badge "Prototipo", boton "Solicitar interprete de {variante}" → redirige a nueva-solicitud, boton "Analizar otro audio"
+- Llama a POST /api/language-identification (3s delay simulado del backend)
 
 ### Historial (/institucion/historial)
 - Tabs: Todas, Pendientes, En curso, Completadas, Canceladas

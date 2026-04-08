@@ -3,13 +3,15 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import type { ApiResponse, DbUser } from '@/types';
 
 export default function SuspendidaPage() {
-  const { dbUser, signOut } = useAuth();
   const { socket } = useSocketContext();
   const router = useRouter();
 
@@ -22,6 +24,26 @@ export default function SuspendidaPage() {
     socket.on('institution:approved', handleApproved);
     return () => { socket.off('institution:approved', handleApproved); };
   }, [socket, router]);
+
+  // Polling fallback every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get<ApiResponse<DbUser>>('/auth/session');
+        if (res.data?.institution?.approvalStatus === 'APPROVED') {
+          toast.success('Tu cuenta fue reactivada!');
+          setTimeout(() => router.replace('/institucion'), 1500);
+          clearInterval(interval);
+        }
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [router]);
+
+  async function handleLogout() {
+    try { await signOut(auth); } catch { /* */ }
+    window.location.href = '/login-institucion';
+  }
 
   return (
     <div className="text-center space-y-6">
@@ -46,7 +68,7 @@ export default function SuspendidaPage() {
         Escribenos a contacto.redinterpretes@gmail.com
       </p>
 
-      <Button variant="outline" onClick={() => signOut()}>
+      <Button variant="outline" onClick={handleLogout}>
         Cerrar sesion
       </Button>
     </div>

@@ -3,10 +3,14 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Clock } from 'lucide-react';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import type { ApiResponse, DbUser } from '@/types';
 
 export default function PendientePage() {
   const { dbUser, signOut } = useAuth();
@@ -37,6 +41,28 @@ export default function PendientePage() {
     }
   }, [dbUser, router]);
 
+  // Polling fallback every 10 seconds
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await api.get<ApiResponse<DbUser>>('/auth/session');
+        const status = res.data?.institution?.approvalStatus;
+        if (status === 'APPROVED') {
+          toast.success('Tu cuenta fue aprobada!');
+          setTimeout(() => router.replace('/institucion'), 1500);
+          return true;
+        }
+        if (status === 'REJECTED') { router.replace('/rechazada'); return true; }
+      } catch { /* silent */ }
+      return false;
+    };
+    const interval = setInterval(async () => {
+      const done = await check();
+      if (done) clearInterval(interval);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   return (
     <div className="text-center space-y-6">
       <div className="flex justify-center">
@@ -63,7 +89,10 @@ export default function PendientePage() {
         Tienes preguntas? Escribenos a contacto.redinterpretes@gmail.com
       </p>
 
-      <Button variant="outline" onClick={() => signOut()}>
+      <Button variant="outline" onClick={async () => {
+        try { await firebaseSignOut(auth); } catch { /* */ }
+        window.location.href = '/login-institucion';
+      }}>
         Cerrar sesion
       </Button>
     </div>

@@ -15,6 +15,7 @@ import {
   Bell,
   Calendar,
   UserCircle,
+  AudioWaveform,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +32,7 @@ const adminNav = [
 const institutionNav = [
   { href: '/institucion', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/institucion/nueva-solicitud', label: 'Nueva solicitud', icon: PlusCircle },
+  { href: '/institucion/identificacion', label: 'Identificar lengua', icon: AudioWaveform },
   { href: '/institucion/historial', label: 'Historial', icon: History },
   { href: '/institucion/perfil', label: 'Mi perfil', icon: Building2 },
 ];

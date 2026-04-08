@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Search, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { useSocketContext } from '@/contexts/SocketContext';
 import { formatDateTime, cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +39,7 @@ export default function InstitutionsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showReject, setShowReject] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { socket } = useSocketContext();
 
   const fetchCounts = useCallback(async () => {
     const statuses: ApprovalTab[] = ['APPROVED', 'PENDING', 'REJECTED', 'SUSPENDED'];
@@ -68,6 +70,18 @@ export default function InstitutionsPage() {
 
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
   useEffect(() => { fetchData(1, tab, search); }, [fetchData, tab, search]);
+
+  // WebSocket: new institution registered
+  useEffect(() => {
+    if (!socket) return;
+    const handle = () => {
+      toast('Nueva institucion registrada', { icon: '🏛️' });
+      fetchCounts();
+      fetchData(1, tab, search);
+    };
+    socket.on('institution:registered', handle);
+    return () => { socket.off('institution:registered', handle); };
+  }, [socket, fetchCounts, fetchData, tab, search]);
 
   function openDetail(inst: Institution) {
     setSelected(inst);

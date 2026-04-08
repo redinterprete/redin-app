@@ -156,6 +156,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socket.on('request:no_show', handleMeetingNoShow);
     socket.on('meeting:both_connected', handleBothConnected);
 
+    // Force logout on account suspension
+    const handleAccountSuspended = () => {
+      toast.error('Tu cuenta ha sido suspendida');
+      import('firebase/auth').then(({ signOut }) => {
+        import('@/lib/firebase').then(({ auth: fbAuth }) => {
+          signOut(fbAuth).then(() => {
+            if (typeof window !== 'undefined') window.location.href = '/suspendida';
+          }).catch(() => {
+            if (typeof window !== 'undefined') window.location.href = '/suspendida';
+          });
+        });
+      });
+    };
+    socket.on('account:suspended', handleAccountSuspended);
+
     return () => {
       socket.off('notification:new', handleNewNotification);
       socket.off('request:available', handleRequestAvailable);
@@ -167,6 +182,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off('meeting:renewed', handleMeetingRenewed);
       socket.off('request:no_show', handleMeetingNoShow);
       socket.off('meeting:both_connected', handleBothConnected);
+      socket.off('account:suspended', handleAccountSuspended);
     };
   }, [socket, dbUser]);
 

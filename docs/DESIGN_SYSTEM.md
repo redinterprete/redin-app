@@ -155,6 +155,24 @@ Textos, fondos, bordes, neutrales.
 - Pagos pendientes: `bg-redin-gold-50 border-redin-gold-200`, icono CreditCard redin-gold-600
 - Ambas con boton "Revisar" (variant outline, size sm)
 
+## Estado de interprete
+
+| Estado | Elemento | Estilo |
+|---|---|---|
+| Activo + Disponible | Toggle switch on | bg-redin-forest-500, circle derecha |
+| Activo + No disponible | Toggle switch off | bg-redin-earth-200, circle izquierda |
+| Desactivado | Badge | variant="red", texto "Desactivado" |
+| Acceso pendiente | Badge + iconos | Badge amber "Pendiente" + Eye (ver) + RefreshCw (regenerar) |
+| Acceso activo | Badge + icono | Badge green "Activo" + RefreshCw (regenerar) |
+
+## Waveform de audio (identificacion linguistica)
+
+- Canvas: `w-full h-[120px] rounded-lg bg-redin-earth-50 border border-redin-earth-200`
+- Barras: `fill: #C4941B` (redin-gold-400), rounded-top, ~50 barras equidistantes
+- Animacion: requestAnimationFrame con AnalyserNode.getByteFrequencyData
+- Boton grabar: `w-20 h-20 rounded-full bg-red-500 hover:bg-red-600`
+- Boton detener: `w-20 h-20 rounded-full bg-redin-earth-800`
+
 ## Grace period (timer)
 
 - Running: `text-redin-forest-600` (verde)
@@ -181,6 +199,9 @@ Lucide React para todos los iconos. Tamano estandar: h-4 w-4 (inline), h-5 w-5 (
 | Zoom | Video |
 | Buscar | Search |
 | Notificaciones | Bell |
+| Identificar lengua | AudioWaveform |
+| IA resultado | Sparkles |
+| Grabar audio | Mic |
 | Logout | LogOut |
 
 ---

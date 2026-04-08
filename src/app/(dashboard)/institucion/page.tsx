@@ -51,13 +51,17 @@ export default function InstitucionDashboard() {
       );
       debouncedRefetch();
     };
+    socket.on('request:created', debouncedRefetch);
     socket.on('request:accepted', handleUpdate);
     socket.on('request:started', handleUpdate);
     socket.on('request:completed', handleUpdate);
+    socket.on('request:cancelled', debouncedRefetch);
     return () => {
+      socket.off('request:created', debouncedRefetch);
       socket.off('request:accepted', handleUpdate);
       socket.off('request:started', handleUpdate);
       socket.off('request:completed', handleUpdate);
+      socket.off('request:cancelled', debouncedRefetch);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [socket, loadData]);

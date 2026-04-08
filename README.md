@@ -6,7 +6,7 @@
 
 REDIN (Red de Interpretes y Promotores Interculturales) es una plataforma que conecta instituciones publicas de Oaxaca con interpretes de lenguas indigenas. Esta aplicacion web ofrece 3 paneles diferenciados por rol: Administrador, Institucion e Interprete.
 
-Se comunica con un backend Express ([redin-api](https://github.com/redinterprete/redin-api)) via API REST y WebSockets en tiempo real. Incluye integracion con Zoom para videollamadas automaticas, notificaciones in-app, y un timer inteligente que solo cobra cuando ambos participantes estan conectados.
+Se comunica con un backend Express ([redin-api](https://github.com/redinterprete/redin-api)) via API REST y WebSockets en tiempo real. Incluye integracion con Zoom para videollamadas automaticas, notificaciones in-app, un timer inteligente que solo cobra cuando ambos participantes estan conectados, flujo de aprobacion de instituciones, y un prototipo de identificacion linguistica por IA con grabacion de audio y waveform en tiempo real.
 
 ## Tecnologias
 
@@ -31,7 +31,7 @@ src/
     (auth-internal)/       # Login admin/interprete + cambio contrasena
     (dashboard)/
       admin/               # 6 paginas
-      institucion/         # 4 paginas
+      institucion/         # 5 paginas
       interprete/          # 5 paginas
   components/
     ui/                    # 10 componentes base
@@ -72,6 +72,7 @@ npm run dev
 | `npm run dev` | Servidor de desarrollo (puerto 3000) |
 | `npm run build` | Compilar para produccion |
 | `npm start` | Servidor compilado |
+| `npm run lint` | Ejecutar ESLint |
 
 ## Documentacion
 
@@ -92,7 +93,7 @@ npm run dev
 | `/login` | Login admin/interpretes |
 | `/cambiar-contrasena` | Onboarding contrasena temporal |
 | `/admin/*` | Panel administrador (6 paginas) |
-| `/institucion/*` | Panel institucion (4 paginas) |
+| `/institucion/*` | Panel institucion (5 paginas) |
 | `/interprete/*` | Panel interprete (5 paginas) |
 
 ## Licencia

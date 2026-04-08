@@ -12,11 +12,12 @@ import {
   Mail,
   MapPin,
   Copy,
-  KeyRound,
+  RefreshCw,
   Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { useSocketContext } from '@/contexts/SocketContext';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -128,9 +129,20 @@ export default function InterpretesPage() {
     setLoading(false);
   }, []);
 
+  const { socket } = useSocketContext();
+
   useEffect(() => {
     fetchData(1, search);
   }, [fetchData, search]);
+
+  // Auto-refresh on any relevant WebSocket event
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => fetchData(pagination.page, search);
+    const events = ['request:accepted', 'request:completed', 'request:cancelled', 'request:started'];
+    events.forEach((e) => socket.on(e, refresh));
+    return () => { events.forEach((e) => socket.off(e, refresh)); };
+  }, [socket, fetchData, pagination.page, search]);
 
   async function openDetail(id: string) {
     setDetailLoading(true);
@@ -230,12 +242,36 @@ export default function InterpretesPage() {
     setDeleting(false);
   }
 
+  async function handleViewTempPassword(interp: Interpreter) {
+    try {
+      const res = await api.get<ApiResponse<{ tempPassword: string | null; mustChangePassword: boolean }>>(`/interpreters/${interp.id}/temp-password`);
+      if (res.data.tempPassword) {
+        setTempPasswordModal({ name: interp.user.name, password: res.data.tempPassword });
+      } else {
+        toast('El interprete ya cambio su contrasena', { icon: 'ℹ️' });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error');
+    }
+  }
+
   async function handleResetPassword(interp: Interpreter) {
+    if (!confirm(`Regenerar contrasena de ${interp.user.name}? La anterior dejara de funcionar.`)) return;
     try {
       const res = await api.post<ApiResponse<{ tempPassword: string }>>(`/interpreters/${interp.id}/reset-password`, {});
       setTempPasswordModal({ name: interp.user.name, password: res.data.tempPassword });
+      await fetchData(pagination.page, search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al regenerar');
+    }
+  }
+
+  async function handleToggleAvailability(id: string, isAvailable: boolean) {
+    try {
+      await api.patch(`/interpreters/${id}/availability`, { isAvailable });
+      setData((prev) => prev.map((i) => (i.id === id ? { ...i, isAvailable } : i)));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error');
     }
   }
 
@@ -348,72 +384,80 @@ export default function InterpretesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={interp.isAvailable ? 'green' : 'gray'}
-                        size="sm"
-                        dot={interp.isAvailable}
-                      >
-                        {interp.isAvailable ? 'Sí' : 'No'}
-                      </Badge>
+                      {!interp.user.isActive ? (
+                        <Badge variant="red" size="sm">Desactivado</Badge>
+                      ) : (
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={interp.isAvailable}
+                            onChange={() => handleToggleAvailability(interp.id, !interp.isAvailable)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-redin-earth-200 peer-checked:bg-redin-forest-500 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                        </label>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-mono text-redin-earth-600">${Number(interp.hourlyRate ?? 300)}/hr</span>
                     </TableCell>
                     <TableCell>
-                      {interp.mustChangePassword && interp.tempPassword ? (
+                      {interp.mustChangePassword ? (
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="amber" size="sm">Temporal</Badge>
-                          <code className="text-xs font-mono bg-redin-earth-100 px-1.5 py-0.5 rounded">{interp.tempPassword}</code>
+                          <Badge variant="amber" size="sm">Pendiente</Badge>
                           <button
-                            onClick={() => copyPassword(interp.tempPassword!)}
-                            className="p-0.5 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600"
-                            title="Copiar"
+                            onClick={() => handleViewTempPassword(interp)}
+                            className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
+                            title="Ver contrasena"
                           >
-                            <Copy className="h-3 w-3" />
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(interp)}
+                            className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                            title="Regenerar contrasena"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                      ) : interp.mustChangePassword ? (
-                        <button
-                          onClick={() => handleResetPassword(interp)}
-                          className="text-xs text-redin-gold-500 hover:text-redin-gold-600 underline"
-                        >
-                          Regenerar
-                        </button>
                       ) : (
-                        <Badge variant="green" size="sm">Activo</Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="green" size="sm">Activo</Badge>
+                          <button
+                            onClick={() => handleResetPassword(interp)}
+                            className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                            title="Regenerar contrasena"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => handleResetPassword(interp)}
-                          className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
-                          aria-label="Regenerar contraseña"
-                          title="Regenerar contraseña"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </button>
-                        <button
                           onClick={() => openDetail(interp.id)}
                           className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
-                          aria-label="Ver detalle"
+                          title="Ver detalle"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => openEdit(interp)}
                           className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
-                          aria-label="Editar"
+                          title="Editar"
                         >
                           <Edit3 className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => setDeleteTarget(interp)}
-                          className="p-1 rounded hover:bg-red-100 text-redin-earth-400 hover:text-red-600 transition-colors"
-                          aria-label="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {interp.user.isActive !== false && (
+                          <button
+                            onClick={() => setDeleteTarget(interp)}
+                            className="p-1 rounded hover:bg-red-100 text-redin-earth-400 hover:text-red-600 transition-colors"
+                            title="Desactivar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -739,6 +783,41 @@ export default function InterpretesPage() {
                 </div>
               </div>
             </div>
+
+            {/* Deactivate / Reactivate */}
+            <div className="border-t border-redin-earth-200 pt-4">
+              {detail.user.isActive ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm(`Desactivar la cuenta de ${detail.user.name}?`)) return;
+                    try {
+                      await api.patch(`/interpreters/${detail.id}/toggle-active`, { isActive: false });
+                      toast.success('Cuenta desactivada');
+                      setDetail(null);
+                      fetchData(pagination.page, search);
+                    } catch (err) { toast.error(err instanceof Error ? err.message : 'Error'); }
+                  }}
+                >
+                  Desactivar cuenta
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await api.patch(`/interpreters/${detail.id}/toggle-active`, { isActive: true });
+                      toast.success('Cuenta reactivada');
+                      setDetail(null);
+                      fetchData(pagination.page, search);
+                    } catch (err) { toast.error(err instanceof Error ? err.message : 'Error'); }
+                  }}
+                >
+                  Reactivar cuenta
+                </Button>
+              )}
+            </div>
           </div>
         ) : null}
       </Modal>
@@ -779,11 +858,11 @@ export default function InterpretesPage() {
         )}
       </Modal>
 
-      {/* Delete confirmation modal */}
+      {/* Delete (deactivate) confirmation modal */}
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        title="Eliminar intérprete"
+        title="Desactivar interprete"
         size="sm"
         footer={
           <>
@@ -795,16 +874,20 @@ export default function InterpretesPage() {
               loading={deleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Eliminar
+              Desactivar
             </Button>
           </>
         }
       >
         {deleteTarget && (
-          <p className="text-sm text-redin-earth-600">
-            ¿Estás seguro de que deseas eliminar al intérprete{' '}
-            <strong>{deleteTarget.user.name}</strong>? Esta acción no se puede deshacer.
-          </p>
+          <div className="space-y-2 text-sm text-redin-earth-600">
+            <p>Desactivar a <strong>{deleteTarget.user.name}</strong>?</p>
+            <ul className="list-disc ml-4 text-xs space-y-1">
+              <li>No podra acceder a la plataforma</li>
+              <li>No recibira nuevas solicitudes</li>
+              <li>Su historial de servicios y pagos se mantiene</li>
+            </ul>
+          </div>
         )}
       </Modal>
     </div>

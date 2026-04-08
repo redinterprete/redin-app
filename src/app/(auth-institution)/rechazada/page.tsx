@@ -3,10 +3,14 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { XCircle } from 'lucide-react';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import type { ApiResponse, DbUser } from '@/types';
 
 export default function RechazadaPage() {
   const { dbUser, signOut } = useAuth();
@@ -22,6 +26,21 @@ export default function RechazadaPage() {
     socket.on('institution:approved', handleApproved);
     return () => { socket.off('institution:approved', handleApproved); };
   }, [socket, router]);
+
+  // Polling fallback every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get<ApiResponse<DbUser>>('/auth/session');
+        if (res.data?.institution?.approvalStatus === 'APPROVED') {
+          toast.success('Tu cuenta fue aprobada!');
+          setTimeout(() => router.replace('/institucion'), 1500);
+          clearInterval(interval);
+        }
+      } catch { /* silent */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [router]);
 
   const rejectionReason = dbUser?.institution?.rejectionReason;
 
@@ -56,7 +75,10 @@ export default function RechazadaPage() {
         Escribenos a contacto.redinterpretes@gmail.com
       </p>
 
-      <Button variant="outline" onClick={() => signOut()}>
+      <Button variant="outline" onClick={async () => {
+        try { await firebaseSignOut(auth); } catch { /* */ }
+        window.location.href = '/login-institucion';
+      }}>
         Cerrar sesion
       </Button>
     </div>

@@ -173,7 +173,8 @@ Provee conexion Socket.IO a toda la app.
 Estado de notificaciones in-app.
 - State: notifications (ultimas 20), unreadCount, loading.
 - Fetch inicial desde API, luego actualiza por WebSocket.
-- Escucha: notification:new, request:available/taken/accepted/started/completed, payment:completed/approved/adjusted, meeting:renewed/both_connected/no_show, institution:approved/rejected/suspended.
+- Escucha: notification:new, request:available/taken/accepted/started/completed, payment:completed/approved/adjusted, meeting:renewed/both_connected/no_show, institution:approved/rejected/suspended, account:suspended.
+- Escucha account:suspended: fuerza logout via Firebase signOut + redirect a /suspendida.
 - Metodos: markAsRead, markAllAsRead, refetch.
 - Toasts por tipo de evento.
 
@@ -185,6 +186,8 @@ Estado de notificaciones in-app.
 Cliente HTTP con auth automatica.
 - getAuthToken() via Firebase getIdToken().
 - Retry: 2 intentos para GET en errores 500+.
+- Intercepta 403 con code ACCOUNT_SUSPENDED → forzar logout via Firebase signOut + redirect a /suspendida.
+- Intercepta 403 con code ACCOUNT_PENDING → redirect a /pendiente.
 - Metodos: api.get, api.post, api.patch, api.delete.
 
 ### firebase.ts
