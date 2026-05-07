@@ -109,6 +109,10 @@ export default function InterpretesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Interpreter | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Reset password confirmation
+  const [resetTarget, setResetTarget] = useState<Interpreter | null>(null);
+  const [resetting, setResetting] = useState(false);
+
   // Temp password modal (shown after create or reset)
   const [tempPasswordModal, setTempPasswordModal] = useState<{ name: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -255,15 +259,25 @@ export default function InterpretesPage() {
     }
   }
 
-  async function handleResetPassword(interp: Interpreter) {
-    if (!confirm(`Regenerar contrasena de ${interp.user.name}? La anterior dejara de funcionar.`)) return;
+  function handleResetPassword(interp: Interpreter) {
+    // Abre el modal de confirmacion. La logica/copy del modal cambia segun
+    // si el interprete ya activo su cuenta (mustChangePassword=false) o no.
+    setResetTarget(interp);
+  }
+
+  async function confirmResetPassword() {
+    if (!resetTarget) return;
+    setResetting(true);
     try {
-      const res = await api.post<ApiResponse<{ tempPassword: string }>>(`/interpreters/${interp.id}/reset-password`, {});
-      setTempPasswordModal({ name: interp.user.name, password: res.data.tempPassword });
+      const res = await api.post<ApiResponse<{ tempPassword: string }>>(`/interpreters/${resetTarget.id}/reset-password`, {});
+      const name = resetTarget.user.name;
+      setResetTarget(null);
+      setTempPasswordModal({ name, password: res.data.tempPassword });
       await fetchData(pagination.page, search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al regenerar');
     }
+    setResetting(false);
   }
 
   async function handleToggleAvailability(id: string, isAvailable: boolean) {
@@ -887,6 +901,84 @@ export default function InterpretesPage() {
               <li>No recibira nuevas solicitudes</li>
               <li>Su historial de servicios y pagos se mantiene</li>
             </ul>
+          </div>
+        )}
+      </Modal>
+
+      {/*
+        Reset password confirmation modal.
+        Dos copies distintos segun el estado del interprete:
+        - mustChangePassword=true (sigue con la contrasena temporal): aviso normal,
+          regenerar simplemente reemplaza una temp por otra.
+        - mustChangePassword=false (ya activo su cuenta con su propia contrasena):
+          aviso reforzado — destruye la contrasena que el usuario configuro y le
+          obliga a usar una temporal otra vez. Solo deberia hacerse si el interprete
+          reporta haberla perdido.
+      */}
+      <Modal
+        open={!!resetTarget}
+        onClose={() => !resetting && setResetTarget(null)}
+        title={
+          resetTarget?.mustChangePassword === false
+            ? 'Restablecer contrasena ya activa'
+            : 'Regenerar contrasena temporal'
+        }
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setResetTarget(null)} disabled={resetting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmResetPassword}
+              loading={resetting}
+              className={
+                resetTarget?.mustChangePassword === false
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : ''
+              }
+            >
+              {resetTarget?.mustChangePassword === false
+                ? 'Si, restablecer contrasena'
+                : 'Regenerar contrasena'}
+            </Button>
+          </>
+        }
+      >
+        {resetTarget && (
+          <div className="space-y-3 text-sm text-redin-earth-600">
+            {resetTarget.mustChangePassword === false ? (
+              <>
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <RefreshCw className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-amber-900">
+                      {resetTarget.user.name} ya activo su cuenta y tiene una contrasena propia.
+                    </p>
+                    <p className="text-xs text-amber-800">
+                      Regenerar va a <strong>destruir su contrasena actual</strong> y reemplazarla por una
+                      temporal. El interprete ya no podra entrar con su contrasena actual y se le obligara
+                      a definir una nueva en su proximo inicio de sesion.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-redin-earth-500">
+                  Usa esta opcion <strong>solo</strong> si el interprete reporto que olvido su
+                  contrasena. Si solo necesitas mostrarle su contrasena actual, no podemos
+                  ayudarte — el sistema no la guarda en texto plano.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Regenerar la contrasena temporal de <strong>{resetTarget.user.name}</strong>?
+                </p>
+                <p className="text-xs text-redin-earth-500">
+                  La temporal anterior dejara de funcionar y se generara una nueva. Comparte la
+                  nueva con el interprete para que pueda iniciar sesion.
+                </p>
+              </>
+            )}
           </div>
         )}
       </Modal>

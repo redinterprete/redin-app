@@ -26,12 +26,16 @@ export default function InterpreteSolicitudesPage() {
   const [stats, setStats] = useState<InterpreterStats | null>(null);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [selected, setSelected] = useState<ServiceRequest | null>(null);
 
-  const fetchData = useCallback(async () => {
+  // Carga datos del dashboard. `silent=true` para refresh manual o
+  // re-sincronizaciones via Socket.IO sin volver a mostrar el skeleton.
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [s, r, p] = await Promise.all([
         api.get<ApiResponse<InterpreterStats>>('/interpreter-profile/stats'),
@@ -41,9 +45,32 @@ export default function InterpreteSolicitudesPage() {
       setStats(s.data);
       setRequests(r.data);
       setIsAvailable((p.data as { isAvailable: boolean }).isAvailable);
-    } catch { /* */ }
+    } catch (err) {
+      if (!silent) toast.error(err instanceof Error ? err.message : 'Error al cargar');
+    }
     setLoading(false);
   }, []);
+
+  // Refresh manual desde el boton "Actualizar". Da feedback al usuario
+  // (spinner en el boton + toast) y deshabilita doble-click.
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const [s, r, p] = await Promise.all([
+        api.get<ApiResponse<InterpreterStats>>('/interpreter-profile/stats'),
+        api.get<PaginatedResponse<ServiceRequest>>('/requests/available?page=1&limit=20'),
+        api.get<ApiResponse<{ id: string; isAvailable: boolean }>>('/interpreter-profile'),
+      ]);
+      setStats(s.data);
+      setRequests(r.data);
+      setIsAvailable((p.data as { isAvailable: boolean }).isAvailable);
+      toast.success('Actualizado', { duration: 1500 });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al actualizar');
+    }
+    setRefreshing(false);
+  }
 
   const { socket } = useSocketContext();
 
@@ -114,8 +141,14 @@ export default function InterpreteSolicitudesPage() {
           <p className="text-sm text-redin-earth-500 mt-1">Solicitudes que coinciden con tus variantes linguisticas</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={fetchData}>
-            Actualizar
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />}
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
           <button
             onClick={toggleAvailability}
