@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { formatDateTime, formatTimer, formatCurrency, cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -41,6 +42,9 @@ export default function AgendaInterpretePage() {
   const { socket } = useSocketContext();
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(fetchData);
 
   // Fetch meeting participant info for the active request
   useEffect(() => {

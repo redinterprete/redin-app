@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatCurrency, timeAgo, formatDateTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -77,6 +78,9 @@ export default function InterpreteSolicitudesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Refetch silencioso al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(() => fetchData(true));
 
   // Real-time updates via Socket.IO (replaces 30s polling)
   useEffect(() => {

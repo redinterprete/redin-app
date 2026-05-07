@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { ZoomButton } from '@/components/shared/ZoomButton';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { formatDateTime, formatDate, formatDuration, formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
@@ -130,6 +131,9 @@ export default function SolicitudesPage() {
   useEffect(() => {
     fetchData(1, tab, search);
   }, [fetchData, tab, search]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(() => fetchData(pagination.page, tab, search));
 
   // Real-time updates
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -18,6 +18,7 @@ import {
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -138,6 +139,9 @@ export default function InterpretesPage() {
   useEffect(() => {
     fetchData(1, search);
   }, [fetchData, search]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(() => fetchData(pagination.page, search));
 
   // Auto-refresh on any relevant WebSocket event
   useEffect(() => {

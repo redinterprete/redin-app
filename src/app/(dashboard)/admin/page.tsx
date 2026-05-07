@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Users, FileText, Clock, CheckCircle, Building2, CreditCard } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { formatDateTime } from '@/lib/utils';
 import { StatsCard, StatsCardSkeleton } from '@/components/ui/StatsCard';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +56,9 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(fetchDashboard);
 
   // Real-time: debounced refetch on request events
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

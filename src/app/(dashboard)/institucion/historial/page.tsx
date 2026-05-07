@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { FileText } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { formatDateTime } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -47,6 +48,9 @@ export default function HistorialInstitucionPage() {
   const { socket } = useSocketContext();
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(fetchData);
 
   // Real-time updates
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatDateTime, cn } from '@/lib/utils';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -42,6 +43,9 @@ export default function PagosInterpretePage() {
   const { socket } = useSocketContext();
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(fetchData);
 
   useEffect(() => {
     if (!socket) return;

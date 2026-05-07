@@ -8,6 +8,7 @@ import { formatDateTime } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ZoomButton } from '@/components/shared/ZoomButton';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { StatsCard, StatsCardSkeleton } from '@/components/ui/StatsCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -36,6 +37,9 @@ export default function InstitucionDashboard() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(loadData);
 
   // Real-time updates
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

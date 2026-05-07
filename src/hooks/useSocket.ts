@@ -10,6 +10,10 @@ export function useSocket() {
   const { dbUser } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  // Timestamp de la ultima RE-conexion (no la inicial). Se usa para que cada
+  // pagina dispare un refetch silencioso y recupere los datos que pudo haber
+  // perdido offline. Ver useSocketReconnect.
+  const [lastReconnectAt, setLastReconnectAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (!dbUser) return;
@@ -56,6 +60,14 @@ export function useSocket() {
           }
         });
 
+        // 'reconnect' del manager dispara SOLO en re-conexiones, no en la
+        // conexion inicial — perfecto para que las paginas refetchen sus
+        // datos sin disparar refetch al mount.
+        socket.io.on('reconnect', () => {
+          console.log('Socket reconnected');
+          if (mounted) setLastReconnectAt(Date.now());
+        });
+
         socketRef.current = socket;
       } catch {
         // Connection failed
@@ -74,5 +86,5 @@ export function useSocket() {
     };
   }, [dbUser]);
 
-  return { socket: socketRef.current, isConnected };
+  return { socket: socketRef.current, isConnected, lastReconnectAt };
 }

@@ -145,6 +145,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // Snapshot del server al conectar/reconectar — incluye las ultimas 10
+    // notificaciones no leidas. Aparece instantaneamente la campanita con
+    // las que llegaron mientras estaba offline, sin esperar refetch HTTP.
+    const handleSyncState = (data: { notifications: Notification[] }) => {
+      setNotifications((prev) => {
+        const merged = new Map(prev.map((n) => [n.id, n]));
+        for (const n of data.notifications) {
+          if (!merged.has(n.id)) merged.set(n.id, n);
+        }
+        return Array.from(merged.values())
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 20);
+      });
+      // Subimos el contador al menos al numero recibido. El conteo real
+      // puede ser mayor (>10) y se reconcilia con el refetch de abajo.
+      setUnreadCount((prev) => Math.max(prev, data.notifications.length));
+    };
+
+    socket.on('sync:state', handleSyncState);
     socket.on('notification:new', handleNewNotification);
     socket.on('request:available', handleRequestAvailable);
     socket.on('request:taken', handleRequestTaken);
@@ -172,6 +191,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socket.on('account:suspended', handleAccountSuspended);
 
     return () => {
+      socket.off('sync:state', handleSyncState);
       socket.off('notification:new', handleNewNotification);
       socket.off('request:available', handleRequestAvailable);
       socket.off('request:taken', handleRequestTaken);

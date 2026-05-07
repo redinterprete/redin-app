@@ -5,6 +5,7 @@ import { Search, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
+import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { formatDateTime, cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -70,6 +71,12 @@ export default function InstitutionsPage() {
 
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
   useEffect(() => { fetchData(1, tab, search); }, [fetchData, tab, search]);
+
+  // Refetch al reconectar (recupera eventos perdidos offline)
+  useSocketReconnect(() => {
+    fetchCounts();
+    fetchData(pagination.page, tab, search);
+  });
 
   // WebSocket: new institution registered
   useEffect(() => {
