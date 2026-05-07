@@ -96,15 +96,22 @@ export default function InterpreteSolicitudesPage() {
       // Remove from available list (this interpreter accepted it, or it was accepted by someone)
       setRequests((prev) => prev.filter((r) => r.id !== data.request.id));
     };
+    // Cuando la institucion cancela la solicitud antes de que un interprete
+    // la acepte, removerla de la lista de disponibles para no dejar fantasma.
+    const handleCancelled = (data: { request: ServiceRequest }) => {
+      setRequests((prev) => prev.filter((r) => r.id !== data.request.id));
+    };
 
     socket.on('request:available', handleAvailable);
     socket.on('request:taken', handleTaken);
     socket.on('request:accepted', handleAccepted);
+    socket.on('request:cancelled', handleCancelled);
 
     return () => {
       socket.off('request:available', handleAvailable);
       socket.off('request:taken', handleTaken);
       socket.off('request:accepted', handleAccepted);
+      socket.off('request:cancelled', handleCancelled);
     };
   }, [socket]);
 
