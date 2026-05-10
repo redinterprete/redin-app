@@ -14,6 +14,7 @@ const statusConfig: Record<
   EXPIRED: { label: 'Expirada', variant: 'gray' },
   NO_SHOW: { label: 'No-show', variant: 'red' },
   INTERRUPTED: { label: 'Interrumpida', variant: 'amber' },
+  NO_INTERPRETERS_AVAILABLE: { label: 'Sin intérpretes', variant: 'red' },
 };
 
 interface StatusBadgeProps {

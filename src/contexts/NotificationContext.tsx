@@ -163,6 +163,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setUnreadCount((prev) => Math.max(prev, data.notifications.length));
     };
 
+    // Cuando una solicitud se cierra sin interpretes disponibles tras agotar las rondas.
+    // Toast a la institucion (operacionalmente importante) y al admin (intervencion manual).
+    const handleNoInterpretersAvailable = () => {
+      if (dbUser.role === 'INSTITUTION') {
+        toast.error('No fue posible asignar un interprete para tu solicitud', { duration: 8000 });
+      } else if (dbUser.role === 'ADMIN') {
+        toast('Solicitud sin interpretes disponibles - requiere intervencion', { icon: '⚠️', duration: 8000 });
+      }
+    };
+
     socket.on('sync:state', handleSyncState);
     socket.on('notification:new', handleNewNotification);
     socket.on('request:available', handleRequestAvailable);
@@ -174,6 +184,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socket.on('meeting:renewed', handleMeetingRenewed);
     socket.on('request:no_show', handleMeetingNoShow);
     socket.on('meeting:both_connected', handleBothConnected);
+    socket.on('request:no_interpreters_available', handleNoInterpretersAvailable);
 
     // Force logout on account suspension
     const handleAccountSuspended = () => {
@@ -203,6 +214,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off('request:no_show', handleMeetingNoShow);
       socket.off('meeting:both_connected', handleBothConnected);
       socket.off('account:suspended', handleAccountSuspended);
+      socket.off('request:no_interpreters_available', handleNoInterpretersAvailable);
     };
   }, [socket, dbUser]);
 

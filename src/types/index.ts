@@ -111,7 +111,8 @@ export type RequestStatus =
   | 'CANCELLED'
   | 'EXPIRED'
   | 'NO_SHOW'
-  | 'INTERRUPTED';
+  | 'INTERRUPTED'
+  | 'NO_INTERPRETERS_AVAILABLE';
 
 export interface ServiceRequest {
   id: string;

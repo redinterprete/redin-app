@@ -31,7 +31,9 @@ export default function InterpreteSolicitudesPage() {
   const [isAvailable, setIsAvailable] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
   const [selected, setSelected] = useState<ServiceRequest | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ServiceRequest | null>(null);
 
   // Carga datos del dashboard. `silent=true` para refresh manual o
   // re-sincronizaciones via Socket.IO sin volver a mostrar el skeleton.
@@ -144,6 +146,22 @@ export default function InterpreteSolicitudesPage() {
     setAccepting(null);
   }
 
+  // Rechazo desde el panel — sin pedir motivo (consistente con el boton de WhatsApp).
+  // El backend decide si dispara siguiente ronda o cierra como NO_INTERPRETERS_AVAILABLE.
+  async function handleReject() {
+    if (!rejectTarget) return;
+    setRejecting(rejectTarget.id);
+    try {
+      await api.patch(`/requests/${rejectTarget.id}/reject`, {});
+      setRequests((prev) => prev.filter((r) => r.id !== rejectTarget.id));
+      setRejectTarget(null);
+      toast.success('Rechazaste la solicitud');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al rechazar');
+    }
+    setRejecting(null);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -240,13 +258,23 @@ export default function InterpreteSolicitudesPage() {
                       <p className="text-sm font-medium text-blue-700">Programada: {formatDateTime(req.scheduledAt)}</p>
                     )}
                   </div>
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto shrink-0 min-h-[48px]"
-                    onClick={() => setSelected(req)}
-                  >
-                    Aceptar solicitud
-                  </Button>
+                  <div className="flex flex-col sm:flex-col gap-2 w-full sm:w-auto shrink-0">
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto min-h-[48px]"
+                      onClick={() => setSelected(req)}
+                    >
+                      Aceptar solicitud
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:w-auto min-h-[48px] border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => setRejectTarget(req)}
+                    >
+                      No puedo
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -276,6 +304,41 @@ export default function InterpreteSolicitudesPage() {
           <Button variant="outline" onClick={() => setSelected(null)}>Cancelar</Button>
           <Button loading={!!accepting} onClick={handleAccept}>Confirmar</Button>
         </div>
+      </Modal>
+
+      {/* Reject confirmation modal */}
+      <Modal
+        open={!!rejectTarget}
+        onClose={() => !rejecting && setRejectTarget(null)}
+        title="Rechazar solicitud"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={!!rejecting}>
+              Cancelar
+            </Button>
+            <Button
+              loading={!!rejecting}
+              onClick={handleReject}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Si, rechazar
+            </Button>
+          </>
+        }
+      >
+        {rejectTarget && (
+          <div className="space-y-3 text-sm text-redin-earth-600">
+            <p>
+              ¿Confirmas que <strong>no puedes atender</strong> esta solicitud de{' '}
+              <strong>{rejectTarget.variant?.language?.name}</strong>?
+            </p>
+            <p className="text-xs text-redin-earth-500">
+              La solicitud seguira buscando otro interprete disponible. No volveras a recibir
+              notificaciones sobre esta solicitud especifica.
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   );
