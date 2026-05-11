@@ -89,7 +89,16 @@ export default function InterpreteSolicitudesPage() {
     if (!socket) return;
 
     const handleAvailable = (data: { request: ServiceRequest }) => {
-      setRequests((prev) => [data.request, ...prev]);
+      // Dedupe por id — en ronda 2 (re-prompt) el backend emite request:available
+      // con el mismo id. Si ya esta en la lista, actualizar la entrada existente
+      // en lugar de duplicarla; si no, agregar al principio.
+      setRequests((prev) => {
+        const exists = prev.some((r) => r.id === data.request.id);
+        if (exists) {
+          return prev.map((r) => (r.id === data.request.id ? data.request : r));
+        }
+        return [data.request, ...prev];
+      });
     };
     const handleTaken = (data: { requestId: string }) => {
       setRequests((prev) => prev.filter((r) => r.id !== data.requestId));
