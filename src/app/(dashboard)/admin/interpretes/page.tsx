@@ -20,6 +20,13 @@ import { api } from '@/lib/api';
 import { useSocketContext } from '@/contexts/SocketContext';
 import { useSocketReconnect } from '@/hooks/useSocketReconnect';
 import { cn } from '@/lib/utils';
+import {
+  validateEmail,
+  validatePhone,
+  validateCLABE,
+  validateHourlyRate,
+  validateName,
+} from '@/lib/validators';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -102,6 +109,29 @@ export default function InterpretesPage() {
   const [saving, setSaving] = useState(false);
   const [formSection, setFormSection] = useState(0);
 
+  // Errores por campo del form. Cada validador retorna string|null; aqui lo
+  // guardamos para mostrarlo inline en el Input via su prop `error`.
+  type FormErrors = Partial<Record<'name' | 'email' | 'phone' | 'bankClabe' | 'hourlyRate', string | null>>;
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  function setFieldError(field: keyof FormErrors, message: string | null) {
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  }
+
+  /** Valida todos los campos requeridos. Llamado al hacer submit. */
+  function validateAllFields(): boolean {
+    const next: FormErrors = {
+      name: validateName(form.name, 'Nombre'),
+      // Email solo se valida (y bloquea) al crear; al editar el email viene disabled.
+      email: editingId ? null : validateEmail(form.email, { required: true }),
+      phone: validatePhone(form.phone, { required: true }),
+      bankClabe: validateCLABE(form.bankClabe),
+      hourlyRate: validateHourlyRate(form.hourlyRate),
+    };
+    setErrors(next);
+    return !Object.values(next).some((v) => !!v);
+  }
+
   // Detail modal
   const [detail, setDetail] = useState<InterpreterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -174,12 +204,14 @@ export default function InterpretesPage() {
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm);
+    setErrors({});
     setFormSection(0);
     setShowForm(true);
   }
 
   async function openEdit(interp: Interpreter) {
     setEditingId(interp.id);
+    setErrors({});
     setForm({
       name: interp.user.name,
       email: interp.user.email,
@@ -212,6 +244,19 @@ export default function InterpretesPage() {
   }
 
   async function saveInterpreter() {
+    // Validacion local antes de enviar — los errores se pintan inline en cada
+    // Input y enfocamos la primera seccion que tenga error.
+    if (!validateAllFields()) {
+      // Si hay error en email/phone/name → seccion 0; si en hourlyRate/CLABE → seccion 2.
+      if (errors.bankClabe || errors.hourlyRate) {
+        setFormSection(2);
+      } else {
+        setFormSection(0);
+      }
+      toast.error('Revisa los campos marcados en rojo');
+      return;
+    }
+
     setSaving(true);
     try {
       const shared: Record<string, unknown> = {
@@ -586,14 +631,24 @@ export default function InterpretesPage() {
             <Input
               label="Nombre completo"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+                if (errors.name) setFieldError('name', null);
+              }}
+              onBlur={() => setFieldError('name', validateName(form.name, 'Nombre'))}
+              error={errors.name ?? undefined}
               required
             />
             <Input
               label="Correo electrónico"
               type="email"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                if (errors.email) setFieldError('email', null);
+              }}
+              onBlur={() => setFieldError('email', validateEmail(form.email, { required: !editingId }))}
+              error={errors.email ?? undefined}
               leftIcon={<Mail className="h-4 w-4" />}
               required
               disabled={!!editingId}
@@ -602,10 +657,16 @@ export default function InterpretesPage() {
               label="Teléfono"
               type="tel"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, phone: e.target.value });
+                if (errors.phone) setFieldError('phone', null);
+              }}
+              onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
+              error={errors.phone ?? undefined}
               leftIcon={<Phone className="h-4 w-4" />}
               required
-              placeholder="+52 951 123 4567"
+              placeholder="55 1234 5678 (10 digitos)"
+              maxLength={20}
             />
             <Input
               label="Comunidad"
@@ -700,16 +761,21 @@ export default function InterpretesPage() {
           <div className="space-y-4">
             <p className="text-sm text-redin-earth-500">
               Datos bancarios para el pago de servicios. Son opcionales y se pueden agregar después.
+            </p>
             <Input
               label="Tarifa por hora (MXN)"
               type="number"
               min={1}
               step={50}
               value={form.hourlyRate}
-              onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, hourlyRate: e.target.value });
+                if (errors.hourlyRate) setFieldError('hourlyRate', null);
+              }}
+              onBlur={() => setFieldError('hourlyRate', validateHourlyRate(form.hourlyRate))}
+              error={errors.hourlyRate ?? undefined}
               placeholder="300"
             />
-            </p>
             <Input
               label="Nombre del banco"
               value={form.bankName}
@@ -719,8 +785,17 @@ export default function InterpretesPage() {
             <Input
               label="CLABE interbancaria"
               value={form.bankClabe}
-              onChange={(e) => setForm({ ...form, bankClabe: e.target.value })}
+              onChange={(e) => {
+                // Solo aceptar digitos
+                const onlyDigits = e.target.value.replace(/[^0-9]/g, '');
+                setForm({ ...form, bankClabe: onlyDigits });
+                if (errors.bankClabe) setFieldError('bankClabe', null);
+              }}
+              onBlur={() => setFieldError('bankClabe', validateCLABE(form.bankClabe))}
+              error={errors.bankClabe ?? undefined}
               placeholder="18 dígitos"
+              maxLength={18}
+              inputMode="numeric"
             />
             <Input
               label="Titular de la cuenta"

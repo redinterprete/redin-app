@@ -8,6 +8,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import {
+  validateEmail,
+  validatePhone,
+  validateName,
+  validatePassword,
+  validatePasswordMatch,
+} from '@/lib/validators';
 
 const institutionTypes = [
   { value: 'hospital', label: 'Hospital' },
@@ -16,6 +23,11 @@ const institutionTypes = [
   { value: 'policia', label: 'Policia' },
   { value: 'otro', label: 'Otro' },
 ];
+
+type FormErrors = Partial<Record<
+  'institutionName' | 'name' | 'email' | 'phone' | 'password' | 'confirmPassword',
+  string | null
+>>;
 
 export default function RegistroPage() {
   const [form, setForm] = useState({
@@ -27,6 +39,7 @@ export default function RegistroPage() {
     password: '',
     confirmPassword: '',
   });
+  const [errors, setErrors] = useState<FormErrors>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { dbUser, loading: authLoading, signUp } = useAuth();
@@ -45,18 +58,35 @@ export default function RegistroPage() {
 
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // Limpiar el error de ese campo en cuanto el usuario empieza a corregir
+    if (errors[field as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [field]: null }));
+    }
+  }
+
+  function setFieldError(field: keyof FormErrors, message: string | null) {
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  }
+
+  function validateAllFields(): boolean {
+    const next: FormErrors = {
+      institutionName: validateName(form.institutionName, 'Nombre de la institucion'),
+      name: validateName(form.name, 'Nombre del responsable'),
+      email: validateEmail(form.email, { required: true }),
+      phone: validatePhone(form.phone, { required: true }),
+      password: validatePassword(form.password, 6),
+      confirmPassword: validatePasswordMatch(form.password, form.confirmPassword),
+    };
+    setErrors(next);
+    return !Object.values(next).some((v) => !!v);
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
 
-    if (form.password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres');
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setError('Las contrasenas no coinciden');
+    if (!validateAllFields()) {
+      setError('Revisa los campos marcados en rojo');
       return;
     }
 
@@ -64,7 +94,7 @@ export default function RegistroPage() {
     try {
       await signUp(form.email, form.password, {
         name: form.name,
-        phone: form.phone || undefined,
+        phone: form.phone,
         role: 'INSTITUTION',
         institutionData: {
           name: form.institutionName,
@@ -89,12 +119,14 @@ export default function RegistroPage() {
         Registro de institucion
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <Input
           label="Nombre de la institucion"
           placeholder="Hospital General..."
           value={form.institutionName}
           onChange={(e) => updateField('institutionName', e.target.value)}
+          onBlur={() => setFieldError('institutionName', validateName(form.institutionName, 'Nombre de la institucion'))}
+          error={errors.institutionName ?? undefined}
           leftIcon={<Building2 className="h-4 w-4" />}
           required
         />
@@ -112,6 +144,8 @@ export default function RegistroPage() {
           placeholder="Nombre completo"
           value={form.name}
           onChange={(e) => updateField('name', e.target.value)}
+          onBlur={() => setFieldError('name', validateName(form.name, 'Nombre del responsable'))}
+          error={errors.name ?? undefined}
           leftIcon={<User className="h-4 w-4" />}
           required
         />
@@ -122,6 +156,8 @@ export default function RegistroPage() {
           placeholder="institucion@ejemplo.gob.mx"
           value={form.email}
           onChange={(e) => updateField('email', e.target.value)}
+          onBlur={() => setFieldError('email', validateEmail(form.email, { required: true }))}
+          error={errors.email ?? undefined}
           leftIcon={<Mail className="h-4 w-4" />}
           required
         />
@@ -129,10 +165,14 @@ export default function RegistroPage() {
         <Input
           label="Telefono"
           type="tel"
-          placeholder="+52 951 ..."
+          placeholder="55 1234 5678 (10 digitos)"
           value={form.phone}
           onChange={(e) => updateField('phone', e.target.value)}
+          onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
+          error={errors.phone ?? undefined}
           leftIcon={<Phone className="h-4 w-4" />}
+          required
+          maxLength={20}
         />
 
         <Input
@@ -141,6 +181,8 @@ export default function RegistroPage() {
           placeholder="Minimo 6 caracteres"
           value={form.password}
           onChange={(e) => updateField('password', e.target.value)}
+          onBlur={() => setFieldError('password', validatePassword(form.password, 6))}
+          error={errors.password ?? undefined}
           leftIcon={<Lock className="h-4 w-4" />}
           required
         />
@@ -151,6 +193,8 @@ export default function RegistroPage() {
           placeholder="Repite tu contrasena"
           value={form.confirmPassword}
           onChange={(e) => updateField('confirmPassword', e.target.value)}
+          onBlur={() => setFieldError('confirmPassword', validatePasswordMatch(form.password, form.confirmPassword))}
+          error={errors.confirmPassword ?? undefined}
           leftIcon={<Lock className="h-4 w-4" />}
           required
         />
