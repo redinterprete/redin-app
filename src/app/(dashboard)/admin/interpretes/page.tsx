@@ -143,11 +143,20 @@ export default function InterpretesPage() {
   // Refetch al reconectar (recupera eventos perdidos offline)
   useSocketReconnect(() => fetchData(pagination.page, search));
 
-  // Auto-refresh on any relevant WebSocket event
+  // Auto-refresh on any relevant WebSocket event.
+  // `interpreter:first_login` lo emite el backend cuando un interprete consulta
+  // su sesion por primera vez — actualiza la columna "Acceso" de Pendiente a
+  // Activo sin que el admin tenga que refrescar.
   useEffect(() => {
     if (!socket) return;
     const refresh = () => fetchData(pagination.page, search);
-    const events = ['request:accepted', 'request:completed', 'request:cancelled', 'request:started'];
+    const events = [
+      'request:accepted',
+      'request:completed',
+      'request:cancelled',
+      'request:started',
+      'interpreter:first_login',
+    ];
     events.forEach((e) => socket.on(e, refresh));
     return () => { events.forEach((e) => socket.off(e, refresh)); };
   }, [socket, fetchData, pagination.page, search]);
@@ -404,44 +413,61 @@ export default function InterpretesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {!interp.user.isActive ? (
-                        <Badge variant="red" size="sm">Desactivado</Badge>
-                      ) : (
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={interp.isAvailable}
-                            onChange={() => handleToggleAvailability(interp.id, !interp.isAvailable)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-redin-earth-200 peer-checked:bg-redin-forest-500 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
-                        </label>
-                      )}
+                      {/* Columna "Disponible": el toggle controla isAvailable.
+                          Si la cuenta esta desactivada (!user.isActive), el toggle
+                          se bloquea visualmente (cursor-not-allowed, opacity).
+                          El estado "Desactivado" aparece en la columna "Acceso",
+                          no aqui. */}
+                      <label className={cn(
+                        'relative inline-flex items-center',
+                        interp.user.isActive ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                      )}>
+                        <input
+                          type="checkbox"
+                          checked={interp.user.isActive && interp.isAvailable}
+                          disabled={!interp.user.isActive}
+                          onChange={() => interp.user.isActive && handleToggleAvailability(interp.id, !interp.isAvailable)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-redin-earth-200 peer-checked:bg-redin-forest-500 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                      </label>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-mono text-redin-earth-600">${Number(interp.hourlyRate ?? 300)}/hr</span>
                     </TableCell>
                     <TableCell>
-                      {/* Politica de contrasenas centralizadas (2026-05-11): el admin
-                          siempre puede ver y regenerar. No hay estado "Pendiente"
-                          porque el interprete no cambia su contrasena en primer login. */}
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="green" size="sm">Activo</Badge>
-                        <button
-                          onClick={() => handleViewTempPassword(interp)}
-                          className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
-                          title="Ver contrasena"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleResetPassword(interp)}
-                          className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                          title="Regenerar contrasena"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      {/* Columna "Acceso" — 3 estados:
+                          1. Cuenta desactivada → badge gris "Desactivado", sin botones.
+                          2. Cuenta activa pero el interprete NUNCA inicio sesion
+                             (firstLoginAt es null) → badge amber "Pendiente acceso".
+                          3. Cuenta activa y ya inicio sesion al menos una vez → "Activo".
+                          Los botones ver/regenerar estan siempre disponibles cuando
+                          la cuenta esta activa, sin importar firstLoginAt. */}
+                      {!interp.user.isActive ? (
+                        <Badge variant="gray" size="sm">Desactivado</Badge>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          {interp.firstLoginAt ? (
+                            <Badge variant="green" size="sm">Activo</Badge>
+                          ) : (
+                            <Badge variant="amber" size="sm">Pendiente</Badge>
+                          )}
+                          <button
+                            onClick={() => handleViewTempPassword(interp)}
+                            className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
+                            title="Ver contrasena"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(interp)}
+                            className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                            title="Regenerar contrasena"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -524,7 +550,11 @@ export default function InterpretesPage() {
                 Siguiente
               </Button>
             ) : (
-              <Button onClick={saveInterpreter} loading={saving} disabled={!form.name || !form.email}>
+              <Button
+                onClick={saveInterpreter}
+                loading={saving}
+                disabled={!form.name || !form.email || (!editingId && !form.phone.trim())}
+              >
                 {editingId ? 'Guardar cambios' : 'Crear intérprete'}
               </Button>
             )}
@@ -574,6 +604,8 @@ export default function InterpretesPage() {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               leftIcon={<Phone className="h-4 w-4" />}
+              required
+              placeholder="+52 951 123 4567"
             />
             <Input
               label="Comunidad"
