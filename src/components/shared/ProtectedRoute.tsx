@@ -23,15 +23,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       return;
     }
 
-    // Intérprete con contraseña temporal debe cambiarla antes de usar el panel
-    if (
-      dbUser.role === 'INTERPRETER' &&
-      dbUser.interpreter?.mustChangePassword &&
-      pathname !== '/cambiar-contrasena'
-    ) {
-      router.replace('/cambiar-contrasena');
-      return;
-    }
+    // Politica de contrasenas centralizadas (2026-05-11): los interpretes ya
+    // no son forzados a cambiar su contrasena al primer login. El admin
+    // gestiona la contrasena desde el panel y la comparte con el interprete.
+    // Se elimina la redireccion a /cambiar-contrasena.
 
     // Institución no aprobada: redirigir a pantalla de estado
     if (dbUser.role === 'INSTITUTION' && dbUser.institution?.approvalStatus && dbUser.institution.approvalStatus !== 'APPROVED') {

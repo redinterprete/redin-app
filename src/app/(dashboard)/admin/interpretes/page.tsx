@@ -256,7 +256,9 @@ export default function InterpretesPage() {
       if (res.data.tempPassword) {
         setTempPasswordModal({ name: interp.user.name, password: res.data.tempPassword });
       } else {
-        toast('El interprete ya cambio su contrasena', { icon: 'ℹ️' });
+        // Cuenta legacy creada antes de la politica centralizada (sin contrasena
+        // registrada en DB). Para verla hay que regenerarla primero.
+        toast('Sin contrasena registrada — usa el boton de regenerar', { icon: 'ℹ️', duration: 4000 });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error');
@@ -420,36 +422,26 @@ export default function InterpretesPage() {
                       <span className="text-sm font-mono text-redin-earth-600">${Number(interp.hourlyRate ?? 300)}/hr</span>
                     </TableCell>
                     <TableCell>
-                      {interp.mustChangePassword ? (
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="amber" size="sm">Pendiente</Badge>
-                          <button
-                            onClick={() => handleViewTempPassword(interp)}
-                            className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
-                            title="Ver contrasena"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleResetPassword(interp)}
-                            className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                            title="Regenerar contrasena"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="green" size="sm">Activo</Badge>
-                          <button
-                            onClick={() => handleResetPassword(interp)}
-                            className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                            title="Regenerar contrasena"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
+                      {/* Politica de contrasenas centralizadas (2026-05-11): el admin
+                          siempre puede ver y regenerar. No hay estado "Pendiente"
+                          porque el interprete no cambia su contrasena en primer login. */}
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="green" size="sm">Activo</Badge>
+                        <button
+                          onClick={() => handleViewTempPassword(interp)}
+                          className="p-1 rounded hover:bg-redin-earth-100 text-redin-earth-400 hover:text-redin-earth-600 transition-colors"
+                          title="Ver contrasena"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleResetPassword(interp)}
+                          className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                          title="Regenerar contrasena"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -870,7 +862,8 @@ export default function InterpretesPage() {
               </button>
             </div>
             <p className="text-xs text-redin-earth-500">
-              Comparte esta contrasena con el interprete. Al iniciar sesion por primera vez, se le pedira que la cambie.
+              Comparte esta contrasena con el interprete — esta es la que usara para iniciar sesion.
+              Si la pierde, puedes regenerarla en cualquier momento desde esta pantalla.
             </p>
           </div>
         )}
@@ -910,79 +903,37 @@ export default function InterpretesPage() {
       </Modal>
 
       {/*
-        Reset password confirmation modal.
-        Dos copies distintos segun el estado del interprete:
-        - mustChangePassword=true (sigue con la contrasena temporal): aviso normal,
-          regenerar simplemente reemplaza una temp por otra.
-        - mustChangePassword=false (ya activo su cuenta con su propia contrasena):
-          aviso reforzado — destruye la contrasena que el usuario configuro y le
-          obliga a usar una temporal otra vez. Solo deberia hacerse si el interprete
-          reporta haberla perdido.
+        Modal de regenerar contrasena.
+        Politica centralizada (2026-05-11): el admin administra la contrasena.
+        Siempre el mismo copy — regenerar invalida la anterior y crea una nueva
+        que el admin comparte con el interprete.
       */}
       <Modal
         open={!!resetTarget}
         onClose={() => !resetting && setResetTarget(null)}
-        title={
-          resetTarget?.mustChangePassword === false
-            ? 'Restablecer contrasena ya activa'
-            : 'Regenerar contrasena temporal'
-        }
+        title="Regenerar contrasena"
         size="sm"
         footer={
           <>
             <Button variant="outline" onClick={() => setResetTarget(null)} disabled={resetting}>
               Cancelar
             </Button>
-            <Button
-              onClick={confirmResetPassword}
-              loading={resetting}
-              className={
-                resetTarget?.mustChangePassword === false
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                  : ''
-              }
-            >
-              {resetTarget?.mustChangePassword === false
-                ? 'Si, restablecer contrasena'
-                : 'Regenerar contrasena'}
+            <Button onClick={confirmResetPassword} loading={resetting}>
+              Regenerar contrasena
             </Button>
           </>
         }
       >
         {resetTarget && (
           <div className="space-y-3 text-sm text-redin-earth-600">
-            {resetTarget.mustChangePassword === false ? (
-              <>
-                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <RefreshCw className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-medium text-amber-900">
-                      {resetTarget.user.name} ya activo su cuenta y tiene una contrasena propia.
-                    </p>
-                    <p className="text-xs text-amber-800">
-                      Regenerar va a <strong>destruir su contrasena actual</strong> y reemplazarla por una
-                      temporal. El interprete ya no podra entrar con su contrasena actual y se le obligara
-                      a definir una nueva en su proximo inicio de sesion.
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xs text-redin-earth-500">
-                  Usa esta opcion <strong>solo</strong> si el interprete reporto que olvido su
-                  contrasena. Si solo necesitas mostrarle su contrasena actual, no podemos
-                  ayudarte — el sistema no la guarda en texto plano.
-                </p>
-              </>
-            ) : (
-              <>
-                <p>
-                  Regenerar la contrasena temporal de <strong>{resetTarget.user.name}</strong>?
-                </p>
-                <p className="text-xs text-redin-earth-500">
-                  La temporal anterior dejara de funcionar y se generara una nueva. Comparte la
-                  nueva con el interprete para que pueda iniciar sesion.
-                </p>
-              </>
-            )}
+            <p>
+              Regenerar la contrasena de <strong>{resetTarget.user.name}</strong>?
+            </p>
+            <p className="text-xs text-redin-earth-500">
+              La contrasena anterior dejara de funcionar inmediatamente. Se generara
+              una nueva — copiala y compartela con el interprete para que pueda iniciar
+              sesion.
+            </p>
           </div>
         )}
       </Modal>

@@ -41,11 +41,9 @@ export default function LoginInternoPage() {
         setLoading(false);
         return;
       }
-      if (user.role === 'INTERPRETER' && user.interpreter?.mustChangePassword) {
-        router.push('/cambiar-contrasena');
-      } else {
-        router.push(user.role === 'ADMIN' ? '/admin' : '/interprete');
-      }
+      // Contrasenas centralizadas (2026-05-11): los interpretes ya no son
+      // redirigidos a cambiar contrasena. Su credencial la administra el admin.
+      router.push(user.role === 'ADMIN' ? '/admin' : '/interprete');
     } catch (err) {
       setError(
         err instanceof Error
