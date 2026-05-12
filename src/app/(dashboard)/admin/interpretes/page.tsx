@@ -118,8 +118,13 @@ export default function InterpretesPage() {
     setErrors((prev) => ({ ...prev, [field]: message }));
   }
 
-  /** Valida todos los campos requeridos. Llamado al hacer submit. */
-  function validateAllFields(): boolean {
+  /**
+   * Valida todos los campos requeridos. Llamado al hacer submit.
+   * Retorna el objeto de errores actualizado (no solo boolean) para que el
+   * caller pueda inspeccionarlo y decidir a que seccion saltar — el state
+   * `errors` se actualiza async, asi que leerlo justo despues no sirve.
+   */
+  function validateAllFields(): FormErrors {
     const next: FormErrors = {
       name: validateName(form.name, 'Nombre'),
       // Email solo se valida (y bloquea) al crear; al editar el email viene disabled.
@@ -129,7 +134,7 @@ export default function InterpretesPage() {
       hourlyRate: validateHourlyRate(form.hourlyRate),
     };
     setErrors(next);
-    return !Object.values(next).some((v) => !!v);
+    return next;
   }
 
   // Detail modal
@@ -246,12 +251,16 @@ export default function InterpretesPage() {
   async function saveInterpreter() {
     // Validacion local antes de enviar — los errores se pintan inline en cada
     // Input y enfocamos la primera seccion que tenga error.
-    if (!validateAllFields()) {
-      // Si hay error en email/phone/name → seccion 0; si en hourlyRate/CLABE → seccion 2.
-      if (errors.bankClabe || errors.hourlyRate) {
-        setFormSection(2);
-      } else {
+    const next = validateAllFields();
+    const hasErrors = Object.values(next).some((v) => !!v);
+    if (hasErrors) {
+      // Saltar a la primera seccion con error.
+      // Seccion 0: datos personales (name/email/phone).
+      // Seccion 2: datos bancarios (hourlyRate/CLABE).
+      if (next.name || next.email || next.phone) {
         setFormSection(0);
+      } else if (next.bankClabe || next.hourlyRate) {
+        setFormSection(2);
       }
       toast.error('Revisa los campos marcados en rojo');
       return;
@@ -595,10 +604,12 @@ export default function InterpretesPage() {
                 Siguiente
               </Button>
             ) : (
+              // El boton NO se deshabilita aunque falten campos: queremos que el
+              // usuario pueda intentar enviar para ver los errores inline.
+              // saveInterpreter() valida y salta a la seccion con error.
               <Button
                 onClick={saveInterpreter}
                 loading={saving}
-                disabled={!form.name || !form.email || (!editingId && !form.phone.trim())}
               >
                 {editingId ? 'Guardar cambios' : 'Crear intérprete'}
               </Button>
@@ -637,6 +648,7 @@ export default function InterpretesPage() {
               }}
               onBlur={() => setFieldError('name', validateName(form.name, 'Nombre'))}
               error={errors.name ?? undefined}
+              placeholder="Ej. Maria Gonzalez Hernandez"
               required
             />
             <Input
@@ -652,13 +664,17 @@ export default function InterpretesPage() {
               leftIcon={<Mail className="h-4 w-4" />}
               required
               disabled={!!editingId}
+              placeholder="interprete@ejemplo.com"
             />
             <Input
               label="Teléfono"
               type="tel"
               value={form.phone}
               onChange={(e) => {
-                setForm({ ...form, phone: e.target.value });
+                // Filtramos a chars validos (digitos, espacios, +, -, parentesis)
+                // para que el usuario no pueda escribir letras u otros simbolos.
+                const filtered = e.target.value.replace(/[^+0-9\s\-()]/g, '');
+                setForm({ ...form, phone: filtered });
                 if (errors.phone) setFieldError('phone', null);
               }}
               onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
@@ -666,6 +682,7 @@ export default function InterpretesPage() {
               leftIcon={<Phone className="h-4 w-4" />}
               required
               placeholder="55 1234 5678 (10 digitos)"
+              inputMode="tel"
               maxLength={20}
             />
             <Input
@@ -673,6 +690,7 @@ export default function InterpretesPage() {
               value={form.community}
               onChange={(e) => setForm({ ...form, community: e.target.value })}
               leftIcon={<MapPin className="h-4 w-4" />}
+              placeholder="Ej. San Juan Chamula"
             />
             <Select
               label="Estado"

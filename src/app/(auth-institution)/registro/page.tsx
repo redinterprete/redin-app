@@ -167,11 +167,16 @@ export default function RegistroPage() {
           type="tel"
           placeholder="55 1234 5678 (10 digitos)"
           value={form.phone}
-          onChange={(e) => updateField('phone', e.target.value)}
+          onChange={(e) => {
+            // Filtra a chars validos para telefono (digitos, espacios, +, -, parentesis)
+            const filtered = e.target.value.replace(/[^+0-9\s\-()]/g, '');
+            updateField('phone', filtered);
+          }}
           onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
           error={errors.phone ?? undefined}
           leftIcon={<Phone className="h-4 w-4" />}
           required
+          inputMode="tel"
           maxLength={20}
         />
 
