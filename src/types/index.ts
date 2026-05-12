@@ -41,17 +41,82 @@ export interface DbUser {
 export interface IndigenousLanguage {
   id: string;
   name: string;
-  isoCode?: string;
-  family?: string;
+  alsoKnownAs?: string | null;
+  isoCode?: string | null;
+  family?: string | null;
+  _count?: { variants: number };
 }
 
 export interface LanguageVariant {
   id: string;
   name: string;
-  region?: string;
-  inaliCode?: string;
+  region?: string | null;
+  inaliCode?: string | null;
+  inaliVariantNumber?: number | null;
+  autoDenominations?: string[];
+  ipaTranscriptions?: string[];
+  languageId?: string;
+  language?: { id: string; name: string; alsoKnownAs?: string | null };
+  _count?: {
+    interpreters: number;
+    communities: number;
+    requests: number;
+  };
 }
 
+/** Catalogo geografico ─────────────────────────────────────────────────── */
+
+export interface State {
+  id: string;
+  name: string;
+  inegiCode?: string | null;
+  _count?: { municipalities: number };
+}
+
+export interface Municipality {
+  id: string;
+  name: string;
+  inegiCode?: string | null;
+  state?: { id: string; name: string };
+  _count?: { communities: number };
+}
+
+export interface Community {
+  id: string;
+  name: string;
+  altName?: string | null;
+  municipality?: {
+    id: string;
+    name: string;
+    state: { id: string; name: string };
+  };
+  _count?: { variantCommunities: number };
+}
+
+export interface CommunityDetail extends Community {
+  variantCommunities: {
+    id: string;
+    variant: {
+      id: string;
+      name: string;
+      language: { id: string; name: string };
+    };
+  }[];
+}
+
+export interface VariantCommunityRow {
+  linkId: string;
+  id: string;
+  name: string;
+  altName?: string | null;
+  municipality: {
+    id: string;
+    name: string;
+    state: { id: string; name: string };
+  };
+}
+
+/** Compat con codigo viejo */
 export interface LanguageWithVariants extends IndigenousLanguage {
   variants: (LanguageVariant & { _count: { interpreters: number } })[];
 }

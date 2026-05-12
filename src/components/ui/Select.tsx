@@ -17,6 +17,7 @@ interface SelectProps {
   label?: string;
   error?: string;
   searchable?: boolean;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function Select({
   label,
   error,
   searchable,
+  disabled,
   className,
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,11 +65,13 @@ export function Select({
       <div className="relative">
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
           className={cn(
             'w-full flex items-center justify-between rounded-lg border border-redin-earth-200 bg-white px-3 py-2 text-left text-sm transition-colors focus:border-redin-gold-400 focus:ring-2 focus:ring-redin-gold-100 focus:outline-none',
             error && 'border-red-400',
-            !selectedLabel && 'text-redin-earth-400'
+            !selectedLabel && 'text-redin-earth-400',
+            disabled && 'bg-redin-earth-50 cursor-not-allowed opacity-60'
           )}
         >
           <span className="truncate">

@@ -16,6 +16,8 @@ import {
   Calendar,
   UserCircle,
   AudioWaveform,
+  GitBranch,
+  MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +26,8 @@ const adminNav = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/interpretes', label: 'Intérpretes', icon: Users },
   { href: '/admin/lenguas', label: 'Lenguas', icon: Languages },
+  { href: '/admin/variantes', label: 'Variantes', icon: GitBranch },
+  { href: '/admin/comunidades', label: 'Comunidades', icon: MapPin },
   { href: '/admin/solicitudes', label: 'Solicitudes', icon: FileText },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/instituciones', label: 'Instituciones', icon: Building2 },
