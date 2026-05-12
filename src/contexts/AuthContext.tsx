@@ -100,7 +100,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       handledByAction.current = true;
-      const cred = await signInWithEmailAndPassword(auth, email, password);
+
+      // 1. Pre-login: check si la cuenta esta bloqueada por 5 intentos fallidos.
+      // El backend responde 423 si esta bloqueada con `retryAfter`.
+      try {
+        await api.post('/auth/check-login', { email });
+      } catch (lockErr) {
+        // Si es 423 ACCOUNT_LOCKED, propagamos el mensaje exacto.
+        throw lockErr;
+      }
+
+      // 2. Firebase signIn — si falla, registramos el intento fallido en backend.
+      let cred;
+      try {
+        cred = await signInWithEmailAndPassword(auth, email, password);
+      } catch (fbErr) {
+        // No esperamos respuesta — fire and forget. Si el usuario no existe,
+        // el backend hace dummy timing para no leakear.
+        api.post('/auth/record-failed-login', { email }).catch(() => {});
+        throw fbErr;
+      }
+
       const dbUser = await loadDbUser();
       if (!dbUser) throw new Error('Usuario no registrado en el sistema');
       setState({ user: cred.user, dbUser, loading: false, error: null });
@@ -134,8 +154,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       handledByAction.current = true;
       const cred = await createUserWithEmailAndPassword(auth, email, password);
+      // Espera a que el token Firebase este listo (createUser hace signIn auto).
+      // El backend toma el uid del Authorization header, no del body — es por
+      // eso que NO mandamos firebaseUid en el payload (defensa contra spoofing).
+      await cred.user.getIdToken(true);
       const res = await api.post<ApiResponse<DbUser>>('/auth/register', {
-        firebaseUid: cred.user.uid,
         email,
         ...userData,
       });
