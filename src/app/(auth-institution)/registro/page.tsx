@@ -3,11 +3,17 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Building2, User, Phone } from 'lucide-react';
+import { Mail, Lock, Building2, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import {
+  PhoneInput,
+  formatPhoneE164,
+  DEFAULT_PHONE_COUNTRY,
+  type PhoneCountry,
+} from '@/components/ui/PhoneInput';
 import {
   validateEmail,
   validatePhone,
@@ -35,7 +41,8 @@ export default function RegistroPage() {
     type: '',
     name: '',
     email: '',
-    phone: '',
+    phone: '',           // Solo digitos nacionales (10)
+    phoneCountry: DEFAULT_PHONE_COUNTRY as PhoneCountry,
     password: '',
     confirmPassword: '',
   });
@@ -92,9 +99,11 @@ export default function RegistroPage() {
 
     setLoading(true);
     try {
+      // Concatena lada + digitos para enviar al backend.
+      const phoneFull = formatPhoneE164(form.phone, form.phoneCountry);
       await signUp(form.email, form.password, {
         name: form.name,
-        phone: form.phone,
+        phone: phoneFull,
         role: 'INSTITUTION',
         institutionData: {
           name: form.institutionName,
@@ -162,22 +171,15 @@ export default function RegistroPage() {
           required
         />
 
-        <Input
-          label="Telefono"
-          type="tel"
-          placeholder="55 1234 5678 (10 digitos)"
+        <PhoneInput
+          label="Telefono *"
           value={form.phone}
-          onChange={(e) => {
-            // Filtra a chars validos para telefono (digitos, espacios, +, -, parentesis)
-            const filtered = e.target.value.replace(/[^+0-9\s\-()]/g, '');
-            updateField('phone', filtered);
-          }}
+          country={form.phoneCountry}
+          onChange={(v) => updateField('phone', v)}
+          onCountryChange={(c) => setForm((prev) => ({ ...prev, phoneCountry: c }))}
           onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
           error={errors.phone ?? undefined}
-          leftIcon={<Phone className="h-4 w-4" />}
           required
-          inputMode="tel"
-          maxLength={20}
         />
 
         <Input

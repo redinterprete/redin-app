@@ -23,26 +23,22 @@ export function validateEmail(email: string, opts: { required?: boolean } = {}):
 }
 
 /**
- * Telefono mexicano — acepta:
- *   - 10 digitos puros: `5512345678`
- *   - 12 digitos con codigo pais: `525512345678`
- *   - Formatos visuales: `+52 55 1234 5678`, `(55) 1234-5678`, `55-1234-5678`
+ * Telefono nacional — exactamente 10 digitos. El lada (+52 MX / +1 US) va
+ * aparte via el componente `PhoneInput`, asi que aqui solo validamos digitos
+ * nacionales.
  *
- * Lo que se valida es la CANTIDAD de digitos despues de remover formato.
+ * Recibe ya filtrado a digitos (PhoneInput hace el filter al escribir), pero
+ * por defensa tambien limpiamos no-digitos antes de medir.
  */
 export function validatePhone(phone: string, opts: { required?: boolean } = {}): string | null {
-  const trimmed = phone.trim();
-  if (!trimmed) {
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (!digits) {
     return opts.required ? 'Telefono requerido' : null;
   }
-  // Solo permitimos digitos, espacios, +, -, ( y )
-  if (!/^[+0-9\s\-()]+$/.test(trimmed)) {
-    return 'Telefono invalido (solo digitos, espacios, +, -)';
+  if (digits.length !== 10) {
+    return 'Telefono debe tener 10 digitos';
   }
-  const digits = trimmed.replace(/[^0-9]/g, '');
-  if (digits.length === 10) return null;
-  if (digits.length === 12 && digits.startsWith('52')) return null;
-  return 'Telefono debe tener 10 digitos (Mexico)';
+  return null;
 }
 
 /**
@@ -94,13 +90,14 @@ export function validateName(name: string, label = 'Nombre'): string | null {
 }
 
 /**
- * Limpia el telefono a 10 digitos puros (formato canonico para guardar / enviar).
- * Ej. `+52 (55) 1234-5678` → `5512345678`.
+ * Limpia el telefono a digitos nacionales (10 digitos sin lada). Tolera
+ * formatos legacy con codigo pais.
  *
  * Llamar SOLO despues de pasar `validatePhone` exitosamente.
  */
 export function normalizePhone(phone: string): string {
   const digits = phone.replace(/[^0-9]/g, '');
   if (digits.length === 12 && digits.startsWith('52')) return digits.slice(2);
-  return digits;
+  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
+  return digits.slice(0, 10);
 }

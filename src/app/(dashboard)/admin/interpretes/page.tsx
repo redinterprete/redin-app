@@ -8,7 +8,6 @@ import {
   Eye,
   Edit3,
   Trash2,
-  Phone,
   Mail,
   MapPin,
   Copy,
@@ -34,6 +33,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  PhoneInput,
+  formatPhoneE164,
+  parsePhoneStored,
+  DEFAULT_PHONE_COUNTRY,
+  type PhoneCountry,
+} from '@/components/ui/PhoneInput';
 import { LanguageSelector } from '@/components/shared/LanguageSelector';
 import {
   Table,
@@ -48,7 +54,6 @@ import type {
   ApiResponse,
   Interpreter,
   InterpreterDetail,
-  LanguageWithVariants,
 } from '@/types';
 
 const proficiencyOptions = [
@@ -69,7 +74,8 @@ const stateOptions = [
 interface InterpreterForm {
   name: string;
   email: string;
-  phone: string;
+  phone: string;           // Solo digitos nacionales — exactamente 10
+  phoneCountry: PhoneCountry;  // Lada seleccionada (default MX)
   community: string;
   state: string;
   bio: string;
@@ -85,6 +91,7 @@ const emptyForm: InterpreterForm = {
   name: '',
   email: '',
   phone: '',
+  phoneCountry: DEFAULT_PHONE_COUNTRY,
   community: '',
   state: '',
   bio: '',
@@ -217,10 +224,14 @@ export default function InterpretesPage() {
   async function openEdit(interp: Interpreter) {
     setEditingId(interp.id);
     setErrors({});
+    // Parsear el telefono almacenado: si trae lada (+52 o +1) lo separamos
+    // del numero nacional. Datos legacy de 10 digitos puros se asumen MX.
+    const parsed = parsePhoneStored(interp.user.phone ?? '');
     setForm({
       name: interp.user.name,
       email: interp.user.email,
-      phone: interp.user.phone ?? '',
+      phone: parsed.digits,
+      phoneCountry: parsed.country,
       community: interp.community ?? '',
       state: interp.state ?? '',
       bio: interp.bio ?? '',
@@ -268,9 +279,12 @@ export default function InterpretesPage() {
 
     setSaving(true);
     try {
+      // Concatena lada + digitos antes de enviar al backend. Ej: '525512345678'
+      // para MX, '15551234567' para US. El backend lo normaliza/almacena.
+      const phoneFull = form.phone ? formatPhoneE164(form.phone, form.phoneCountry) : '';
       const shared: Record<string, unknown> = {
         name: form.name,
-        ...(form.phone && { phone: form.phone }),
+        ...(phoneFull && { phone: phoneFull }),
         ...(form.community && { community: form.community }),
         ...(form.state && { state: form.state }),
         ...(form.bio && { bio: form.bio }),
@@ -666,24 +680,18 @@ export default function InterpretesPage() {
               disabled={!!editingId}
               placeholder="interprete@ejemplo.com"
             />
-            <Input
-              label="Teléfono"
-              type="tel"
+            <PhoneInput
+              label="Teléfono *"
               value={form.phone}
-              onChange={(e) => {
-                // Filtramos a chars validos (digitos, espacios, +, -, parentesis)
-                // para que el usuario no pueda escribir letras u otros simbolos.
-                const filtered = e.target.value.replace(/[^+0-9\s\-()]/g, '');
-                setForm({ ...form, phone: filtered });
+              country={form.phoneCountry}
+              onChange={(v) => {
+                setForm({ ...form, phone: v });
                 if (errors.phone) setFieldError('phone', null);
               }}
+              onCountryChange={(c) => setForm({ ...form, phoneCountry: c })}
               onBlur={() => setFieldError('phone', validatePhone(form.phone, { required: true }))}
               error={errors.phone ?? undefined}
-              leftIcon={<Phone className="h-4 w-4" />}
               required
-              placeholder="55 1234 5678 (10 digitos)"
-              inputMode="tel"
-              maxLength={20}
             />
             <Input
               label="Comunidad"
