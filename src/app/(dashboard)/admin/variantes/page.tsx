@@ -16,7 +16,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/Table';
 import type {
-  ApiResponse, PaginatedResponse, IndigenousLanguage, LanguageVariant,
+  ApiResponse, PaginatedResponse, IndigenousLanguage, LanguageVariant, State, Municipality,
 } from '@/types';
 
 interface VariantForm {
@@ -43,6 +43,8 @@ export default function VariantesPage() {
 
   // Filtros desde URL (preserva estado al navegar)
   const languageFilter = searchParams.get('languageId') ?? '';
+  const stateFilter = searchParams.get('stateId') ?? '';
+  const municipalityFilter = searchParams.get('municipalityId') ?? '';
   const searchFilter = searchParams.get('search') ?? '';
   const page = parseInt(searchParams.get('page') ?? '1', 10);
 
@@ -51,6 +53,8 @@ export default function VariantesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [languages, setLanguages] = useState<IndigenousLanguage[]>([]);
+  const [states, setStates] = useState<State[]>([]);
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
   const [searchInput, setSearchInput] = useState(searchFilter);
 
   const [showForm, setShowForm] = useState(false);
@@ -61,19 +65,37 @@ export default function VariantesPage() {
   const [deleteTarget, setDeleteTarget] = useState<LanguageVariant | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Cargar lenguas (para filtro y form de creacion)
+  // Cargar lenguas y estados (catalogos estables)
   useEffect(() => {
     api
       .get<ApiResponse<IndigenousLanguage[]>>('/languages')
       .then((res) => setLanguages(res.data))
       .catch(() => {});
+    api
+      .get<ApiResponse<State[]>>('/geo/states')
+      .then((res) => setStates(res.data))
+      .catch(() => {});
   }, []);
+
+  // Cargar municipios cuando cambia el estado filtrado
+  useEffect(() => {
+    if (!stateFilter) {
+      setMunicipalities([]);
+      return;
+    }
+    api
+      .get<PaginatedResponse<Municipality>>(`/geo/municipalities?stateId=${stateFilter}&limit=200`)
+      .then((r) => setMunicipalities(r.data))
+      .catch(() => {});
+  }, [stateFilter]);
 
   const fetchVariants = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (languageFilter) params.set('languageId', languageFilter);
+      if (stateFilter) params.set('stateId', stateFilter);
+      if (municipalityFilter) params.set('municipalityId', municipalityFilter);
       if (searchFilter) params.set('search', searchFilter);
       params.set('page', String(page));
       params.set('limit', '25');
@@ -85,7 +107,7 @@ export default function VariantesPage() {
       toast.error(err instanceof Error ? err.message : 'Error al cargar variantes');
     }
     setLoading(false);
-  }, [languageFilter, searchFilter, page]);
+  }, [languageFilter, stateFilter, municipalityFilter, searchFilter, page]);
 
   useEffect(() => {
     fetchVariants();
@@ -116,6 +138,22 @@ export default function VariantesPage() {
       ...languages.map((l) => ({ value: l.id, label: l.name })),
     ],
     [languages]
+  );
+
+  const stateOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los estados' },
+      ...states.map((s) => ({ value: s.id, label: s.name })),
+    ],
+    [states]
+  );
+
+  const muniOptions = useMemo(
+    () => [
+      { value: '', label: 'Todos los municipios' },
+      ...municipalities.map((m) => ({ value: m.id, label: m.name })),
+    ],
+    [municipalities]
   );
 
   const languageOptionsForm = useMemo(
@@ -194,6 +232,17 @@ export default function VariantesPage() {
   }
 
   const selectedLangName = languages.find((l) => l.id === languageFilter)?.name;
+  const selectedStateName = states.find((s) => s.id === stateFilter)?.name;
+
+  // Subtitulo dinamico segun filtros activos
+  let subtitle = 'Todas las variantes del catálogo INALI';
+  if (selectedLangName && selectedStateName) {
+    subtitle = `Variantes de ${selectedLangName} en ${selectedStateName}`;
+  } else if (selectedLangName) {
+    subtitle = `Variantes de ${selectedLangName}`;
+  } else if (selectedStateName) {
+    subtitle = `Lenguas y variantes en ${selectedStateName}`;
+  }
 
   return (
     <div className="space-y-6">
@@ -201,7 +250,7 @@ export default function VariantesPage() {
         <div>
           <h1 className="text-2xl font-semibold text-redin-earth-900">Variantes lingüísticas</h1>
           <p className="text-sm text-redin-earth-500 mt-1">
-            {selectedLangName ? `Variantes de ${selectedLangName}` : 'Todas las variantes del catálogo INALI'}
+            {subtitle}
             {' · '}
             <span className="font-medium">{total}</span> resultados
           </p>
@@ -212,12 +261,27 @@ export default function VariantesPage() {
       </div>
 
       <Card>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Select
             label="Lengua"
             options={languageOptions}
             value={languageFilter}
             onChange={(v) => updateUrl({ languageId: v || null, page: '1' })}
+            searchable
+          />
+          <Select
+            label="Estado"
+            options={stateOptions}
+            value={stateFilter}
+            onChange={(v) => updateUrl({ stateId: v || null, municipalityId: null, page: '1' })}
+            searchable
+          />
+          <Select
+            label="Municipio"
+            options={muniOptions}
+            value={municipalityFilter}
+            onChange={(v) => updateUrl({ municipalityId: v || null, page: '1' })}
+            disabled={!stateFilter}
             searchable
           />
           <Input
@@ -228,6 +292,32 @@ export default function VariantesPage() {
             leftIcon={<Search className="h-4 w-4" />}
           />
         </div>
+        {(languageFilter || stateFilter || municipalityFilter || searchFilter) && (
+          <div className="mt-3 flex items-center gap-2 text-xs">
+            <span className="text-redin-earth-500">Activos:</span>
+            {languageFilter && (
+              <Badge variant="gold" size="sm">
+                {languages.find((l) => l.id === languageFilter)?.name ?? '?'}
+              </Badge>
+            )}
+            {stateFilter && (
+              <Badge variant="forest" size="sm">
+                {states.find((s) => s.id === stateFilter)?.name ?? '?'}
+              </Badge>
+            )}
+            {municipalityFilter && (
+              <Badge variant="gray" size="sm">
+                {municipalities.find((m) => m.id === municipalityFilter)?.name ?? '?'}
+              </Badge>
+            )}
+            <button
+              onClick={() => router.push('/admin/variantes')}
+              className="text-redin-earth-500 hover:text-redin-earth-700 underline"
+            >
+              Limpiar todos
+            </button>
+          </div>
+        )}
       </Card>
 
       {loading ? (

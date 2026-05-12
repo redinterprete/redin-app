@@ -81,7 +81,7 @@ export function Select({
         </button>
 
         {isOpen && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-redin-earth-200 bg-white shadow-lg">
+          <div className="absolute z-50 mt-1 w-full rounded-lg border border-redin-earth-200 bg-white shadow-lg">
             {searchable && (
               <div className="p-2 border-b border-redin-earth-100">
                 <input
@@ -94,7 +94,7 @@ export function Select({
                 />
               </div>
             )}
-            <div className="max-h-48 overflow-y-auto py-1">
+            <div className="max-h-64 overflow-y-auto py-1">
               {filtered.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-redin-earth-400">
                   Sin resultados

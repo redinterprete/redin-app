@@ -21,9 +21,18 @@ export function Card({
   className,
   ...props
 }: CardProps) {
+  // overflow-hidden solo cuando hay header/footer (para que los bordes redondeados
+  // recorten correctamente esos bloques). Sin header/footer, dejamos overflow-visible
+  // para que dropdowns/popovers internos puedan escapar de los limites de la Card.
+  const needsClip = !!header || !!footer;
   return (
     <div
-      className={cn('rounded-xl overflow-hidden', variantClasses[variant], className)}
+      className={cn(
+        'rounded-xl',
+        needsClip ? 'overflow-hidden' : 'overflow-visible',
+        variantClasses[variant],
+        className
+      )}
       {...props}
     >
       {header && (
