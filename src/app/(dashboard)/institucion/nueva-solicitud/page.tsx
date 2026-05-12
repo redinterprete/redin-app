@@ -12,9 +12,10 @@ import { Select } from '@/components/ui/Select';
 import { LanguageSelector } from '@/components/shared/LanguageSelector';
 import { ContextSelector } from '@/components/shared/ContextSelector';
 import { DateTimePicker } from '@/components/shared/DateTimePicker';
+import { AsyncCommunitySearch } from '@/components/shared/AsyncCommunitySearch';
 import { cn } from '@/lib/utils';
 import type {
-  ApiResponse, PaginatedResponse, ServiceRequest, IndigenousLanguage,
+  ApiResponse, ServiceRequest, IndigenousLanguage,
   State, Community,
 } from '@/types';
 
@@ -32,12 +33,11 @@ export default function NuevaSolicitudPage() {
   // ── Estado del flujo "community" ────────────────────────────────────────
   const [languages, setLanguages] = useState<IndigenousLanguage[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  const [communities, setCommunities] = useState<Community[]>([]);
 
   const [languageId, setLanguageId] = useState('');
   const [stateId, setStateId] = useState('');
   const [communityId, setCommunityId] = useState('');
-  const [communitiesLoading, setCommunitiesLoading] = useState(false);
+  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
 
   // ── Estado del flujo "manual" ───────────────────────────────────────────
   const [variantId, setVariantId] = useState('');
@@ -62,26 +62,11 @@ export default function NuevaSolicitudPage() {
       .catch(() => {});
   }, []);
 
-  // ── Cargar comunidades cuando hay lengua + estado ───────────────────────
-  // El catalogo tiene 22k comunidades; solo cargamos las que aplican a
-  // (languageId, stateId) usando los filtros del backend.
+  // Cuando cambia lengua o estado, reseteamos la comunidad seleccionada.
+  // El AsyncCommunitySearch se encarga de cargar resultados server-side.
   useEffect(() => {
-    if (!languageId || !stateId) {
-      setCommunities([]);
-      setCommunityId('');
-      return;
-    }
-    setCommunitiesLoading(true);
     setCommunityId('');
-    const params = new URLSearchParams({
-      languageId,
-      stateId,
-      limit: '200',
-    });
-    api.get<PaginatedResponse<Community>>(`/geo/communities?${params}`)
-      .then((r) => setCommunities(r.data))
-      .catch(() => setCommunities([]))
-      .finally(() => setCommunitiesLoading(false));
+    setSelectedCommunity(null);
   }, [languageId, stateId]);
 
   // ── Pre-fill desde flujo de identificacion IA ───────────────────────────
@@ -107,16 +92,6 @@ export default function NuevaSolicitudPage() {
   const stateOptions = useMemo(
     () => states.map((s) => ({ value: s.id, label: s.name })),
     [states]
-  );
-
-  const communityOptions = useMemo(
-    () => communities.map((c) => ({
-      value: c.id,
-      label: c.altName
-        ? `${c.name} (${c.altName}) — ${c.municipality?.name ?? ''}`
-        : `${c.name} — ${c.municipality?.name ?? ''}`,
-    })),
-    [communities]
   );
 
   // ── Validacion del submit ───────────────────────────────────────────────
@@ -154,6 +129,7 @@ export default function NuevaSolicitudPage() {
     setLanguageId('');
     setStateId('');
     setCommunityId('');
+    setSelectedCommunity(null);
     setVariantId('');
     setType('');
     setScheduledAt('');
@@ -168,7 +144,6 @@ export default function NuevaSolicitudPage() {
   // Nombres seleccionados para mostrar en el preview
   const selectedLang = languages.find((l) => l.id === languageId);
   const selectedState = states.find((s) => s.id === stateId);
-  const selectedCommunity = communities.find((c) => c.id === communityId);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -257,22 +232,21 @@ export default function NuevaSolicitudPage() {
                     searchable
                     disabled={!languageId}
                   />
-                  <Select
+                  <AsyncCommunitySearch
                     label="Comunidad *"
-                    options={communityOptions}
+                    languageId={languageId}
+                    stateId={stateId}
                     value={communityId}
-                    onChange={setCommunityId}
+                    onChange={(id, com) => {
+                      setCommunityId(id);
+                      setSelectedCommunity(com);
+                    }}
                     placeholder={
                       !languageId || !stateId
                         ? 'Primero selecciona lengua y estado'
-                        : communitiesLoading
-                          ? 'Cargando comunidades...'
-                          : communityOptions.length === 0
-                            ? 'No hay comunidades registradas para esta combinación'
-                            : 'Selecciona la comunidad'
+                        : 'Buscar y seleccionar comunidad'
                     }
-                    searchable
-                    disabled={!languageId || !stateId || communitiesLoading || communityOptions.length === 0}
+                    disabled={!languageId || !stateId}
                   />
 
                   {selectedCommunity && selectedLang && (
